@@ -1,0 +1,155 @@
+// Requirement types
+export interface Requirement {
+  id: string;
+  projectId: string;
+  title: string;
+  status: RequirementStatus;
+  priority: Priority;
+  creatorId: string;
+  assigneeId?: string;
+  tags: string[];
+  screenshots: Screenshot[];
+  userDescription: string;
+  aiGeneratedContent?: AIGeneratedContent;
+  mockupDesigns?: MockupDesign[];
+  selectedMockupId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type RequirementStatus = 
+  | 'draft' 
+  | 'annotating' 
+  | 'ai_generating' 
+  | 'mockup_review' 
+  | 'designing' 
+  | 'completed' 
+  | 'archived';
+
+export type Priority = 'low' | 'medium' | 'high' | 'urgent';
+
+export interface Screenshot {
+  id: string;
+  url: string;
+  title: string;
+  imageUrl: string;
+  thumbnailUrl: string;
+  annotations: Annotation[];
+  description: string;
+  order: number;
+  createdAt: string;
+}
+
+export interface Annotation {
+  id: string;
+  type: AnnotationType;
+  color?: string;
+  strokeWidth?: number;
+  coordinates: {
+    x: number;
+    y: number;
+    width?: number;
+    height?: number;
+    points?: { x: number; y: number }[];
+  };
+  text?: string;
+}
+
+export type AnnotationType = 'rectangle' | 'circle' | 'arrow' | 'draw' | 'text';
+
+export interface AIGeneratedContent {
+  prdMarkdownUrl: string;
+  designSuggestions: DesignSuggestion;
+  generatedPrompt: string;
+  generatedAt: string;
+}
+
+export interface DesignSuggestion {
+  layout: {
+    style: string;
+    description: string;
+  };
+  components: ComponentSuggestion[];
+  styleGuide: {
+    colors: string[];
+    typography: string;
+  };
+  interactions: string[];
+}
+
+export interface ComponentSuggestion {
+  name: string;
+  type: string;
+  description: string;
+  props?: string[];
+}
+
+export interface MockupDesign {
+  id: string;
+  generationBatch: number;
+  variant: 'A' | 'B';
+  imageUrl: string;
+  prompt: string;
+  style: string;
+  params: {
+    aspectRatio: string;
+    seed?: number;
+  };
+  selected: boolean;
+  createdAt: string;
+}
+
+// Project types
+export interface Project {
+  id: string;
+  name: string;
+  description: string;
+  members: Member[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Member {
+  id: string;
+  name: string;
+  role: 'owner' | 'admin' | 'member';
+}
+
+// Settings types
+export interface AppConfig {
+  geminiApiKey: string;
+  oss: OSSConfig;
+}
+
+export interface OSSConfig {
+  provider: 'qiniu' | 'aliyun' | 'aws';
+  region: string;
+  bucket: string;
+  accessKey: string;
+  secretKey: string;
+  domain?: string;
+}
+
+// Generation types
+export interface GenerationRequest {
+  requirementId: string;
+  screenshots: Screenshot[];
+  userDescription: string;
+  aspectRatio?: string;
+}
+
+export interface GeminiImageRequest {
+  model: string;
+  prompt: string;
+  negativePrompt?: string;
+  aspectRatio?: string;
+  numberOfImages: number;
+  seed?: number;
+}
+
+export interface GeminiImageResponse {
+  images: {
+    bytesBase64Encoded: string;
+    mimeType: string;
+  }[];
+}
