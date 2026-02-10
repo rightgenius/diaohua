@@ -9,7 +9,7 @@ export class OSSService {
   }
 
   async uploadFile(
-    file: File | Blob,
+    _file: File | Blob,
     key: string,
     onProgress?: (percent: number) => void
   ): Promise<string> {

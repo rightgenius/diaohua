@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import { useRequirementStore } from '@/stores/requirementStore';
+import { useGeminiService, type PRDGenerationResult } from '@/services/gemini';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { 
   ChevronLeft, 
   Wand2, 
-  Download, 
   FileJson, 
   FileText,
-  Check,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { MockupReview } from './MockupReview';
@@ -26,17 +26,106 @@ export function AIResultPanel({ onBack }: AIResultPanelProps) {
     updateRequirement,
   } = useRequirementStore();
   
+  const geminiService = useGeminiService();
+  
   const [activeTab, setActiveTab] = useState<'prd' | 'design' | 'mockup'>('prd');
+  const [isGeneratingPRD, setIsGeneratingPRD] = useState(false);
   const [isGeneratingMockup, setIsGeneratingMockup] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [aiResult, setAiResult] = useState<PRDGenerationResult | null>(
+    currentRequirement?.aiGeneratedContent && {
+      prdMarkdown: '', // 需要从存储中恢复
+      designSuggestions: currentRequirement.aiGeneratedContent.designSuggestions,
+      generatedPrompt: currentRequirement.aiGeneratedContent.generatedPrompt,
+    } || null
+  );
 
   if (!currentRequirement) return null;
 
-  const handleGenerateMockup = () => {
+  const handleGeneratePRD = async () => {
+    if (!geminiService) {
+      setError('请先配置 Gemini API Key');
+      return;
+    }
+
+    if (currentRequirement.screenshots.length === 0) {
+      setError('请至少添加一张截图');
+      return;
+    }
+
+    setIsGeneratingPRD(true);
+    setError(null);
+
+    try {
+      const result = await geminiService.generatePRD({
+        requirement: currentRequirement,
+      });
+      
+      setAiResult(result);
+      
+      // 保存到需求中
+      updateRequirement(currentRequirement.id, {
+        aiGeneratedContent: {
+          prdMarkdownUrl: '', // 可以上传到 OSS
+          designSuggestions: result.designSuggestions,
+          generatedPrompt: result.generatedPrompt,
+          generatedAt: new Date().toISOString(),
+        },
+        status: 'ai_generating',
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '生成失败，请重试');
+    } finally {
+      setIsGeneratingPRD(false);
+    }
+  };
+
+  const handleGenerateMockup = async () => {
+    if (!geminiService) {
+      setError('请先配置 Gemini API Key');
+      return;
+    }
+
+    const prompt = aiResult?.generatedPrompt || currentRequirement.aiGeneratedContent?.generatedPrompt;
+    if (!prompt) {
+      setError('请先生成 PRD 以获取效果图 Prompt');
+      return;
+    }
+
     setIsGeneratingMockup(true);
-    setTimeout(() => {
+    setError(null);
+
+    try {
+      const result = await geminiService.generateMockups({
+        prompt,
+        aspectRatio: '16:9',
+      });
+
+      // 保存效果图
+      const mockups = result.images.map((img) => ({
+        id: Date.now().toString() + img.variant,
+        generationBatch: (currentRequirement.mockupDesigns?.length || 0) + 1,
+        variant: img.variant,
+        imageUrl: `data:${img.mimeType};base64,${img.base64}`,
+        prompt: result.prompt,
+        style: aiResult?.designSuggestions?.layout?.style || '默认风格',
+        params: { aspectRatio: '16:9' },
+        selected: false,
+        createdAt: new Date().toISOString(),
+      }));
+
+      updateRequirement(currentRequirement.id, {
+        mockupDesigns: [...(currentRequirement.mockupDesigns || []), ...mockups],
+        status: 'mockup_review',
+      });
+
+      setActiveTab('mockup');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '生成效果图失败，请重试');
+    } finally {
       setIsGeneratingMockup(false);
-    }, 2000);
+    }
   };
 
   const handleExportJSON = () => {
@@ -55,53 +144,7 @@ export function AIResultPanel({ onBack }: AIResultPanelProps) {
     setTimeout(() => setIsExporting(false), 500);
   };
 
-  // Mock PRD content
-  const mockPRD = `# ${currentRequirement.title}
-
-## 1. 现状分析
-
-基于截图分析，当前页面存在以下问题：
-- 导航栏布局拥挤，信息层级不清晰
-- 视觉风格偏向传统，缺乏现代感
-- 核心功能入口不够突出
-
-## 2. 优化目标
-
-- 简化导航结构，采用胶囊式设计
-- 提升视觉层级，突出核心功能
-- 保持品牌调性一致
-
-## 3. 功能需求
-
-### 3.1 导航栏改版
-- 将现有横向菜单改为胶囊式按钮组
-- 减少菜单项数量，突出3个核心入口
-- 添加搜索框居中显示
-
-### 3.2 首页布局优化
-- 采用卡片式布局，提升内容可读性
-- 增加视觉留白，改善呼吸感
-
-## 4. 验收标准
-
-- [ ] 新导航在所有页面保持一致
-- [ ] 移动端适配正常
-- [ ] 页面加载时间不超过2秒
-`;
-
-  // Mock design reference
-  const mockDesignRef = {
-    layout: {
-      style: '卡片式布局 + 胶囊导航',
-      description: '采用现代简约风格，强调内容层级',
-    },
-    colors: ['#1890ff', '#ffffff', '#f5f5f5', '#262626'],
-    components: [
-      { name: 'NavigationBar', type: '胶囊式导航' },
-      { name: 'SearchBar', type: '居中搜索框' },
-      { name: 'ContentCard', type: '圆角卡片' },
-    ],
-  };
+  const hasAIResult = aiResult !== null || currentRequirement.aiGeneratedContent !== undefined;
 
   return (
     <div className="h-full flex flex-col">
@@ -159,76 +202,179 @@ export function AIResultPanel({ onBack }: AIResultPanelProps) {
         </div>
       </div>
 
+      {/* Error Banner */}
+      {error && (
+        <div className="px-4 py-2 bg-red-50 border-b border-red-200 flex items-center gap-2 text-red-700">
+          <AlertCircle size={16} />
+          <span className="text-sm">{error}</span>
+          <button 
+            onClick={() => setError(null)}
+            className="ml-auto text-xs hover:underline"
+          >
+            关闭
+          </button>
+        </div>
+      )}
+
       {/* Content */}
       <div className="flex-1 overflow-auto p-6">
-        {activeTab === 'prd' && (
-          <div className="max-w-3xl mx-auto">
-            <Card className="p-6">
-              <div className="prose prose-sm max-w-none">
-                <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
-                  {mockPRD}
-                </pre>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {activeTab === 'design' && (
-          <div className="max-w-3xl mx-auto space-y-6">
-            <Card className="p-6">
-              <h3 className="text-lg font-semibold mb-4">布局建议</h3>
-              <p className="text-muted-foreground">{mockDesignRef.layout.description}</p>
-            </Card>
-
-            <Card className="p-6">
-              <h3 className="text-lg font-semibold mb-4">配色方案</h3>
-              <div className="flex gap-3">
-                {mockDesignRef.colors.map((color, i) => (
-                  <div key={i} className="flex flex-col items-center gap-2">
-                    <div
-                      className="w-16 h-16 rounded-lg border shadow-sm"
-                      style={{ backgroundColor: color }}
-                    />
-                    <span className="text-xs text-muted-foreground">{color}</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            <Card className="p-6">
-              <h3 className="text-lg font-semibold mb-4">组件建议</h3>
-              <div className="space-y-3">
-                {mockDesignRef.components.map((comp, i) => (
-                  <div key={i} className="flex items-center justify-between py-2 border-b last:border-0">
-                    <span className="font-medium">{comp.name}</span>
-                    <span className="text-sm text-muted-foreground bg-muted px-2 py-1 rounded">
-                      {comp.type}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            <div className="flex justify-center">
-              <Button 
-                size="lg" 
-                className="gap-2"
-                onClick={handleGenerateMockup}
-                disabled={isGeneratingMockup}
-              >
-                {isGeneratingMockup ? (
-                  <Loader2 size={18} className="animate-spin" />
-                ) : (
-                  <Wand2 size={18} />
-                )}
-                {isGeneratingMockup ? '生成中...' : '生成效果图'}
-              </Button>
+        {!geminiService && (
+          <div className="max-w-2xl mx-auto text-center py-12">
+            <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle size={32} className="text-amber-600" />
             </div>
+            <h3 className="text-lg font-semibold mb-2">需要配置 API Key</h3>
+            <p className="text-muted-foreground mb-4">
+              请前往设置页面配置 Google Gemini API Key 以使用 AI 功能
+            </p>
+            <a 
+              href="https://aistudio.google.com/app/apikey" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-primary hover:underline text-sm"
+            >
+              获取 API Key →
+            </a>
           </div>
         )}
 
-        {activeTab === 'mockup' && (
-          <MockupReview onGenerate={handleGenerateMockup} isGenerating={isGeneratingMockup} />
+        {geminiService && activeTab === 'prd' && (
+          <div className="max-w-3xl mx-auto">
+            {!hasAIResult ? (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Wand2 size={32} className="text-primary" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">生成 AI 优化 PRD</h3>
+                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                  基于您的截图标注和需求描述，AI 将生成专业的 PRD 文档和设计建议
+                </p>
+                <Button 
+                  size="lg" 
+                  onClick={handleGeneratePRD}
+                  disabled={isGeneratingPRD}
+                  className="gap-2"
+                >
+                  {isGeneratingPRD && <Loader2 size={18} className="animate-spin" />}
+                  {isGeneratingPRD ? '生成中...' : '生成 PRD'}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">AI 生成的 PRD</h3>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleGeneratePRD}
+                    disabled={isGeneratingPRD}
+                    className="gap-2"
+                  >
+                    <RefreshCw size={14} />
+                    重新生成
+                  </Button>
+                </div>
+                
+                <Card className="p-6">
+                  <div className="prose prose-sm max-w-none">
+                    <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed bg-muted p-4 rounded-lg">
+                      {aiResult?.prdMarkdown || currentRequirement.aiGeneratedContent?.generatedPrompt || '暂无内容'}
+                    </pre>
+                  </div>
+                </Card>
+              </div>
+            )}
+          </div>
+        )}
+
+        {geminiService && activeTab === 'design' && (
+          <div className="max-w-3xl mx-auto space-y-6">
+            {!hasAIResult ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">请先生成 PRD 以查看设计参考</p>
+                <Button 
+                  className="mt-4"
+                  onClick={() => setActiveTab('prd')}
+                >
+                  前往生成
+                </Button>
+              </div>
+            ) : (
+              <>
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">布局建议</h3>
+                  <p className="text-muted-foreground">
+                    {aiResult?.designSuggestions?.layout?.description || '暂无'}
+                  </p>
+                  <div className="mt-2 text-sm">
+                    <span className="font-medium">风格：</span> 
+                    {aiResult?.designSuggestions?.layout?.style || '未指定'}
+                  </div>
+                </Card>
+
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">配色方案</h3>
+                  <div className="flex gap-3 flex-wrap">
+                    {(aiResult?.designSuggestions?.styleGuide?.colors || []).map((color, i) => (
+                      <div key={i} className="flex flex-col items-center gap-2">
+                        <div
+                          className="w-16 h-16 rounded-lg border shadow-sm"
+                          style={{ backgroundColor: color }}
+                        />
+                        <span className="text-xs text-muted-foreground font-mono">{color}</span>
+                      </div>
+                    ))}
+                    {(aiResult?.designSuggestions?.styleGuide?.colors || []).length === 0 && (
+                      <p className="text-muted-foreground text-sm">未提供配色方案</p>
+                    )}
+                  </div>
+                </Card>
+
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">组件建议</h3>
+                  <div className="space-y-3">
+                    {(aiResult?.designSuggestions?.components || []).map((comp, i) => (
+                      <div key={i} className="flex items-center justify-between py-2 border-b last:border-0">
+                        <div>
+                          <span className="font-medium">{comp.name}</span>
+                          <p className="text-xs text-muted-foreground">{comp.description}</p>
+                        </div>
+                        <span className="text-sm text-muted-foreground bg-muted px-2 py-1 rounded">
+                          {comp.type}
+                        </span>
+                      </div>
+                    ))}
+                    {(aiResult?.designSuggestions?.components || []).length === 0 && (
+                      <p className="text-muted-foreground text-sm">未提供组件建议</p>
+                    )}
+                  </div>
+                </Card>
+
+                <div className="flex justify-center">
+                  <Button 
+                    size="lg" 
+                    className="gap-2"
+                    onClick={handleGenerateMockup}
+                    disabled={isGeneratingMockup}
+                  >
+                    {isGeneratingMockup ? (
+                      <Loader2 size={18} className="animate-spin" />
+                    ) : (
+                      <Wand2 size={18} />
+                    )}
+                    {isGeneratingMockup ? '生成中...' : '生成效果图'}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {geminiService && activeTab === 'mockup' && (
+          <MockupReview 
+            onGenerate={handleGenerateMockup} 
+            isGenerating={isGeneratingMockup}
+          />
         )}
       </div>
     </div>

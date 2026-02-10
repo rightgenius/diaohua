@@ -3,8 +3,7 @@ import { useConfigStore } from '@/stores/configStore';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Check, AlertCircle } from 'lucide-react';
-import { cn } from '@/utils/cn';
+import { Check, Info, ExternalLink } from 'lucide-react';
 
 export function Settings() {
   const { geminiApiKey, oss, setGeminiApiKey, setOSSConfig, isConfigured } = useConfigStore();
@@ -34,9 +33,11 @@ export function Settings() {
   };
 
   return (
-    <div className="p-8 max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold mb-2">设置</h1>
-      <p className="text-muted-foreground mb-8">配置 API 密钥和存储服务</p>
+    <div className="p-8 max-w-2xl mx-auto h-full overflow-auto">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2">设置</h1>
+        <p className="text-muted-foreground">配置 API 密钥和存储服务</p>
+      </div>
 
       {showSuccess && (
         <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 text-green-700">
@@ -46,9 +47,14 @@ export function Settings() {
       )}
 
       {!isConfigured && (
-        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-amber-700">
-          <AlertCircle size={20} />
-          <span>请完成以下配置才能开始使用雕花</span>
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
+          <Info size={20} className="text-blue-500 mt-0.5" />
+          <div>
+            <p className="text-blue-900 font-medium">本地功能已可用</p>
+            <p className="text-sm text-blue-700 mt-1">
+              您可以立即开始使用截图和标注功能。配置 API 密钥后，可使用 AI 生成效果图和 PRD 文档。
+            </p>
+          </div>
         </div>
       )}
 
@@ -56,11 +62,16 @@ export function Settings() {
         {/* Gemini API Key */}
         <Card>
           <CardHeader>
-            <CardTitle>Google Gemini API</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Google Gemini API</CardTitle>
+              {geminiApiKey && (
+                <span className="text-xs text-green-600 flex items-center gap-1">
+                  <Check size={14} /> 已配置
+                </span>
+              )}
+            </div>
             <CardDescription>
-              用于AI需求优化和效果图生成，请从 
-              <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Google AI Studio</a>
-              获取
+              用于 AI 需求优化和效果图生成
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -72,6 +83,16 @@ export function Settings() {
                 value={formData.geminiApiKey}
                 onChange={(e) => setFormData({ ...formData, geminiApiKey: e.target.value })}
               />
+              <p className="text-xs text-muted-foreground mt-2">
+                从 <a 
+                  href="https://aistudio.google.com/app/apikey" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  Google AI Studio <ExternalLink size={12} />
+                </a> 获取
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -79,11 +100,16 @@ export function Settings() {
         {/* Qiniu OSS */}
         <Card>
           <CardHeader>
-            <CardTitle>七牛云存储</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>七牛云存储</CardTitle>
+              {oss.bucket && oss.accessKey && (
+                <span className="text-xs text-green-600 flex items-center gap-1">
+                  <Check size={14} /> 已配置
+                </span>
+              )}
+            </div>
             <CardDescription>
-              用于存储截图和效果图，请从 
-              <a href="https://portal.qiniu.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">七牛云控制台</a>
-              获取密钥
+              用于云端存储截图和效果图（可选，默认保存到本地）
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -121,6 +147,16 @@ export function Settings() {
                 onChange={(e) => setFormData({ ...formData, qiniuDomain: e.target.value })}
               />
             </div>
+            <p className="text-xs text-muted-foreground">
+              从 <a 
+                href="https://portal.qiniu.com/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-primary hover:underline inline-flex items-center gap-1"
+              >
+                七牛云控制台 <ExternalLink size={12} />
+              </a> 获取密钥
+            </p>
           </CardContent>
         </Card>
 

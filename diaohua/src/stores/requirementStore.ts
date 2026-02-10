@@ -1,166 +1,244 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { Requirement, Screenshot, MockupDesign, Annotation } from '@/types';
 
 interface RequirementState {
+  requirements: Requirement[];
   currentRequirement: Requirement | null;
   isLoading: boolean;
   error: string | null;
   
   // Actions
-  createRequirement: (projectId: string, title: string) => Requirement;
-  updateRequirement: (updates: Partial<Requirement>) => void;
-  addScreenshot: (screenshot: Screenshot) => void;
-  updateScreenshot: (screenshotId: string, updates: Partial<Screenshot>) => void;
-  removeScreenshot: (screenshotId: string) => void;
-  updateAnnotations: (screenshotId: string, annotations: Annotation[]) => void;
-  addMockupDesigns: (mockups: MockupDesign[]) => void;
-  selectMockup: (mockupId: string) => void;
-  setStatus: (status: Requirement['status']) => void;
-  clearCurrentRequirement: () => void;
+  createRequirement: (title: string, description?: string) => Requirement;
+  updateRequirement: (id: string, updates: Partial<Requirement>) => void;
+  deleteRequirement: (id: string) => void;
+  setCurrentRequirement: (requirement: Requirement | null) => void;
+  getRequirementById: (id: string) => Requirement | undefined;
+  
+  // Screenshot actions
+  addScreenshot: (requirementId: string, screenshot: Screenshot) => void;
+  updateScreenshot: (requirementId: string, screenshotId: string, updates: Partial<Screenshot>) => void;
+  removeScreenshot: (requirementId: string, screenshotId: string) => void;
+  updateAnnotations: (requirementId: string, screenshotId: string, annotations: Annotation[]) => void;
+  
+  // Mockup actions
+  addMockupDesigns: (requirementId: string, mockups: MockupDesign[]) => void;
+  selectMockup: (requirementId: string, mockupId: string) => void;
 }
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
-export const useRequirementStore = create<RequirementState>((set, get) => ({
-  currentRequirement: null,
-  isLoading: false,
-  error: null,
-  
-  createRequirement: (projectId: string, title: string) => {
-    const newRequirement: Requirement = {
-      id: generateId(),
-      projectId,
-      title,
-      status: 'draft',
-      priority: 'medium',
-      creatorId: 'current-user',
-      tags: [],
-      screenshots: [],
-      userDescription: '',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    set({ currentRequirement: newRequirement });
-    return newRequirement;
-  },
-  
-  updateRequirement: (updates: Partial<Requirement>) => {
-    const { currentRequirement } = get();
-    if (!currentRequirement) return;
-    
-    set({
-      currentRequirement: {
-        ...currentRequirement,
-        ...updates,
-        updatedAt: new Date().toISOString(),
+export const useRequirementStore = create<RequirementState>()(
+  persist(
+    (set, get) => ({
+      requirements: [],
+      currentRequirement: null,
+      isLoading: false,
+      error: null,
+      
+      createRequirement: (title: string, description?: string) => {
+        const newRequirement: Requirement = {
+          id: generateId(),
+          projectId: 'default-project',
+          title,
+          status: 'draft',
+          priority: 'medium',
+          creatorId: 'current-user',
+          tags: [],
+          screenshots: [],
+          userDescription: description || '',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        set((state) => ({
+          requirements: [newRequirement, ...state.requirements],
+          currentRequirement: newRequirement,
+        }));
+        return newRequirement;
       },
-    });
-  },
-  
-  addScreenshot: (screenshot: Screenshot) => {
-    const { currentRequirement } = get();
-    if (!currentRequirement) return;
-    
-    set({
-      currentRequirement: {
-        ...currentRequirement,
-        screenshots: [...currentRequirement.screenshots, screenshot],
-        updatedAt: new Date().toISOString(),
+      
+      updateRequirement: (id: string, updates: Partial<Requirement>) => {
+        set((state) => ({
+          requirements: state.requirements.map((req) =>
+            req.id === id
+              ? { ...req, ...updates, updatedAt: new Date().toISOString() }
+              : req
+          ),
+          currentRequirement:
+            state.currentRequirement?.id === id
+              ? { ...state.currentRequirement, ...updates, updatedAt: new Date().toISOString() }
+              : state.currentRequirement,
+        }));
       },
-    });
-  },
-  
-  updateScreenshot: (screenshotId: string, updates: Partial<Screenshot>) => {
-    const { currentRequirement } = get();
-    if (!currentRequirement) return;
-    
-    set({
-      currentRequirement: {
-        ...currentRequirement,
-        screenshots: currentRequirement.screenshots.map((s) =>
-          s.id === screenshotId ? { ...s, ...updates } : s
-        ),
-        updatedAt: new Date().toISOString(),
+      
+      deleteRequirement: (id: string) => {
+        set((state) => ({
+          requirements: state.requirements.filter((req) => req.id !== id),
+          currentRequirement:
+            state.currentRequirement?.id === id ? null : state.currentRequirement,
+        }));
       },
-    });
-  },
-  
-  removeScreenshot: (screenshotId: string) => {
-    const { currentRequirement } = get();
-    if (!currentRequirement) return;
-    
-    set({
-      currentRequirement: {
-        ...currentRequirement,
-        screenshots: currentRequirement.screenshots.filter(
-          (s) => s.id !== screenshotId
-        ),
-        updatedAt: new Date().toISOString(),
+      
+      setCurrentRequirement: (requirement: Requirement | null) => {
+        set({ currentRequirement: requirement });
       },
-    });
-  },
-  
-  updateAnnotations: (screenshotId: string, annotations: Annotation[]) => {
-    const { currentRequirement } = get();
-    if (!currentRequirement) return;
-    
-    set({
-      currentRequirement: {
-        ...currentRequirement,
-        screenshots: currentRequirement.screenshots.map((s) =>
-          s.id === screenshotId ? { ...s, annotations } : s
-        ),
-        updatedAt: new Date().toISOString(),
+      
+      getRequirementById: (id: string) => {
+        return get().requirements.find((req) => req.id === id);
       },
-    });
-  },
-  
-  addMockupDesigns: (mockups: MockupDesign[]) => {
-    const { currentRequirement } = get();
-    if (!currentRequirement) return;
-    
-    const existingMockups = currentRequirement.mockupDesigns || [];
-    set({
-      currentRequirement: {
-        ...currentRequirement,
-        mockupDesigns: [...existingMockups, ...mockups],
-        updatedAt: new Date().toISOString(),
+      
+      addScreenshot: (requirementId: string, screenshot: Screenshot) => {
+        set((state) => ({
+          requirements: state.requirements.map((req) =>
+            req.id === requirementId
+              ? {
+                  ...req,
+                  screenshots: [...req.screenshots, screenshot],
+                  status: 'annotating',
+                  updatedAt: new Date().toISOString(),
+                }
+              : req
+          ),
+          currentRequirement:
+            state.currentRequirement?.id === requirementId
+              ? {
+                  ...state.currentRequirement,
+                  screenshots: [...state.currentRequirement.screenshots, screenshot],
+                  status: 'annotating',
+                }
+              : state.currentRequirement,
+        }));
       },
-    });
-  },
-  
-  selectMockup: (mockupId: string) => {
-    const { currentRequirement } = get();
-    if (!currentRequirement) return;
-    
-    set({
-      currentRequirement: {
-        ...currentRequirement,
-        mockupDesigns: (currentRequirement.mockupDesigns || []).map((m) => ({
-          ...m,
-          selected: m.id === mockupId,
-        })),
-        selectedMockupId: mockupId,
-        status: 'designing',
-        updatedAt: new Date().toISOString(),
+      
+      updateScreenshot: (requirementId: string, screenshotId: string, updates: Partial<Screenshot>) => {
+        set((state) => ({
+          requirements: state.requirements.map((req) =>
+            req.id === requirementId
+              ? {
+                  ...req,
+                  screenshots: req.screenshots.map((s) =>
+                    s.id === screenshotId ? { ...s, ...updates } : s
+                  ),
+                  updatedAt: new Date().toISOString(),
+                }
+              : req
+          ),
+          currentRequirement:
+            state.currentRequirement?.id === requirementId
+              ? {
+                  ...state.currentRequirement,
+                  screenshots: state.currentRequirement.screenshots.map((s) =>
+                    s.id === screenshotId ? { ...s, ...updates } : s
+                  ),
+                }
+              : state.currentRequirement,
+        }));
       },
-    });
-  },
-  
-  setStatus: (status: Requirement['status']) => {
-    const { currentRequirement } = get();
-    if (!currentRequirement) return;
-    
-    set({
-      currentRequirement: {
-        ...currentRequirement,
-        status,
-        updatedAt: new Date().toISOString(),
+      
+      removeScreenshot: (requirementId: string, screenshotId: string) => {
+        set((state) => ({
+          requirements: state.requirements.map((req) =>
+            req.id === requirementId
+              ? {
+                  ...req,
+                  screenshots: req.screenshots.filter((s) => s.id !== screenshotId),
+                  updatedAt: new Date().toISOString(),
+                }
+              : req
+          ),
+          currentRequirement:
+            state.currentRequirement?.id === requirementId
+              ? {
+                  ...state.currentRequirement,
+                  screenshots: state.currentRequirement.screenshots.filter(
+                    (s) => s.id !== screenshotId
+                  ),
+                }
+              : state.currentRequirement,
+        }));
       },
-    });
-  },
-  
-  clearCurrentRequirement: () => {
-    set({ currentRequirement: null, error: null });
-  },
-}));
+      
+      updateAnnotations: (requirementId: string, screenshotId: string, annotations: Annotation[]) => {
+        set((state) => ({
+          requirements: state.requirements.map((req) =>
+            req.id === requirementId
+              ? {
+                  ...req,
+                  screenshots: req.screenshots.map((s) =>
+                    s.id === screenshotId ? { ...s, annotations } : s
+                  ),
+                  updatedAt: new Date().toISOString(),
+                }
+              : req
+          ),
+          currentRequirement:
+            state.currentRequirement?.id === requirementId
+              ? {
+                  ...state.currentRequirement,
+                  screenshots: state.currentRequirement.screenshots.map((s) =>
+                    s.id === screenshotId ? { ...s, annotations } : s
+                  ),
+                }
+              : state.currentRequirement,
+        }));
+      },
+      
+      addMockupDesigns: (requirementId: string, mockups: MockupDesign[]) => {
+        set((state) => ({
+          requirements: state.requirements.map((req) =>
+            req.id === requirementId
+              ? {
+                  ...req,
+                  mockupDesigns: [...(req.mockupDesigns || []), ...mockups],
+                  status: 'mockup_review',
+                  updatedAt: new Date().toISOString(),
+                }
+              : req
+          ),
+          currentRequirement:
+            state.currentRequirement?.id === requirementId
+              ? {
+                  ...state.currentRequirement,
+                  mockupDesigns: [...(state.currentRequirement.mockupDesigns || []), ...mockups],
+                  status: 'mockup_review',
+                }
+              : state.currentRequirement,
+        }));
+      },
+      
+      selectMockup: (requirementId: string, mockupId: string) => {
+        set((state) => ({
+          requirements: state.requirements.map((req) =>
+            req.id === requirementId
+              ? {
+                  ...req,
+                  mockupDesigns: (req.mockupDesigns || []).map((m) => ({
+                    ...m,
+                    selected: m.id === mockupId,
+                  })),
+                  selectedMockupId: mockupId,
+                  status: 'designing',
+                  updatedAt: new Date().toISOString(),
+                }
+              : req
+          ),
+          currentRequirement:
+            state.currentRequirement?.id === requirementId
+              ? {
+                  ...state.currentRequirement,
+                  mockupDesigns: (state.currentRequirement.mockupDesigns || []).map((m) => ({
+                    ...m,
+                    selected: m.id === mockupId,
+                  })),
+                  selectedMockupId: mockupId,
+                  status: 'designing',
+                }
+              : state.currentRequirement,
+        }));
+      },
+    }),
+    {
+      name: 'diaohua-requirements',
+    }
+  )
+);

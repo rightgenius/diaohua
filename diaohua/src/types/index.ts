@@ -30,7 +30,9 @@ export type Priority = 'low' | 'medium' | 'high' | 'urgent';
 
 export interface Screenshot {
   id: string;
-  url: string;
+  url: string; // 截图时网页URL
+  pageUrl: string; // 截图时网页URL（冗余备份）
+  pageTitle?: string; // 截图时网页标题
   title: string;
   imageUrl: string;
   thumbnailUrl: string;

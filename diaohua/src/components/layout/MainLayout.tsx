@@ -1,19 +1,15 @@
 import { useConfigStore } from '@/stores/configStore';
-import { Navigate } from 'react-router-dom';
 import { Settings, Home, Plus, FolderOpen } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
 import { cn } from '@/utils/cn';
+import { Link, useLocation } from 'react-router-dom';
 
 interface MainLayoutProps {
   children: React.ReactNode;
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
+  const location = useLocation();
   const { isConfigured } = useConfigStore();
-
-  if (!isConfigured) {
-    return <Navigate to="/settings" replace />;
-  }
 
   return (
     <div className="flex h-screen bg-background">
@@ -23,13 +19,38 @@ export function MainLayout({ children }: MainLayoutProps) {
           雕
         </div>
         
-        <NavButton icon={<Home size={20} />} to="/" tooltip="首页" />
-        <NavButton icon={<Plus size={20} />} to="/requirement" tooltip="新建需求" />
-        <NavButton icon={<FolderOpen size={20} />} to="/" tooltip="项目" />
+        <NavButton 
+          icon={<Home size={20} />} 
+          to="/" 
+          tooltip="首页" 
+          isActive={location.pathname === '/'}
+        />
+        <NavButton 
+          icon={<Plus size={20} />} 
+          to="/requirement" 
+          tooltip="新建需求" 
+          isActive={location.pathname.startsWith('/requirement')}
+        />
+        <NavButton 
+          icon={<FolderOpen size={20} />} 
+          to="/" 
+          tooltip="项目" 
+          isActive={false}
+        />
         
         <div className="flex-1" />
         
-        <NavButton icon={<Settings size={20} />} to="/settings" tooltip="设置" />
+        {/* Config Status Indicator */}
+        {!isConfigured && (
+          <div className="w-2 h-2 bg-amber-500 rounded-full mb-2" title="未配置 API" />
+        )}
+        
+        <NavButton 
+          icon={<Settings size={20} />} 
+          to="/settings" 
+          tooltip="设置" 
+          isActive={location.pathname === '/settings'}
+        />
       </aside>
 
       {/* Main content */}
@@ -44,16 +65,16 @@ function NavButton({
   icon,
   to,
   tooltip,
+  isActive,
 }: {
   icon: React.ReactNode;
   to: string;
   tooltip: string;
+  isActive: boolean;
 }) {
-  const isActive = window.location.pathname === to;
-  
   return (
-    <a
-      href={to}
+    <Link
+      to={to}
       className={cn(
         'w-10 h-10 rounded-lg flex items-center justify-center transition-colors relative group',
         isActive
@@ -63,9 +84,9 @@ function NavButton({
       title={tooltip}
     >
       {icon}
-      <span className="absolute left-12 bg-popover text-popover-foreground px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+      <span className="absolute left-12 bg-popover text-popover-foreground px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 border shadow-sm">
         {tooltip}
       </span>
-    </a>
+    </Link>
   );
 }

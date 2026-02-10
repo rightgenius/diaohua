@@ -5,9 +5,9 @@ import { Card } from '@/components/ui/Card';
 import { 
   Check, 
   RefreshCw, 
-  ArrowLeft,
   Loader2,
-  Info
+  Info,
+  Download,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
@@ -16,33 +16,42 @@ interface MockupReviewProps {
   isGenerating: boolean;
 }
 
-// Demo mockup images
-const demoMockupA = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIi8+PHJlY3QgeD0iMjAiIHk9IjIwIiB3aWR0aD0iMzYwIiBoZWlnaHQ9IjQwIiByeD0iMjAiIGZpbGw9IiMxODkwZmYiLz48dGV4dCB4PSIyMDAiIHk9IjQ3IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7nlLXlrZDlt6XkuJbnlYznhKbnvb48L3RleHQ+PHJlY3QgeD0iMjAiIHk9IjgwIiB3aWR0aD0iMzYwIiBoZWlnaHQ9IjIwMCIgcng9IjgiIGZpbGw9IndoaXRlIiBzdHJva2U9IiNlNWU3ZWIiLz48dGV4dCB4PSIyMDAiIHk9IjE4MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjNjY2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7lhYXkuobnlLXlrZDlt6XkuJYgQSDnva48L3RleHQ+PC9zdmc+';
-const demoMockupB = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIi8+PHJlY3QgeD0iMjAiIHk9IjIwIiB3aWR0aD0iMzYwIiBoZWlnaHQ9IjQwIiByeD0iMjAiIGZpbGw9IiMxODkwZmYiLz48dGV4dCB4PSIyMDAiIHk9IjQ3IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7nlLXlrZDlt6XkuJbnlYznhKbnvb48L3RleHQ+PHJlY3QgeD0iMjAiIHk9IjgwIiB3aWR0aD0iMzYwIiBoZWlnaHQ9IjIwMCIgcng9IjgiIGZpbGw9IndoaXRlIiBzdHJva2U9IiNlNWU3ZWIiLz48dGV4dCB4PSIyMDAiIHk9IjE4MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjNjY2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7lhYXkuobnlLXlrZDlt6XkuJYgQuaXpeacnzwvdGV4dD48L3N2Zz4=';
-
 export function MockupReview({ onGenerate, isGenerating }: MockupReviewProps) {
   const { 
     currentRequirement, 
     selectMockup,
-    setStatus 
+    updateRequirement
   } = useRequirementStore();
   
   const [selectedVariant, setSelectedVariant] = useState<'A' | 'B' | null>(null);
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
 
-  // Check if we have mockups to show
-  const hasMockups = currentRequirement?.status === 'mockup_review' || 
-                     currentRequirement?.status === 'designing';
+  // 获取当前批次的效果图
+  const currentBatch = currentRequirement?.mockupDesigns && currentRequirement.mockupDesigns.length > 0
+    ? Math.max(...currentRequirement.mockupDesigns.map(m => m.generationBatch))
+    : 0;
+  
+  const currentMockups = currentRequirement?.mockupDesigns?.filter(
+    m => m.generationBatch === currentBatch
+  ) || [];
+
+  const mockupA = currentMockups.find(m => m.variant === 'A');
+  const mockupB = currentMockups.find(m => m.variant === 'B');
+  
+  // 检查是否有效果图
+  const hasMockups = currentMockups.length > 0;
 
   const handleSelect = (variant: 'A' | 'B') => {
     setSelectedVariant(variant);
   };
 
   const handleConfirm = () => {
-    if (selectedVariant) {
-      // In real app, we'd use the actual mockup ID
-      selectMockup(`mockup_${selectedVariant}`);
-      setStatus('designing');
+    if (selectedVariant && currentRequirement) {
+      const mockup = currentMockups.find(m => m.variant === selectedVariant);
+      if (mockup) {
+        selectMockup(currentRequirement.id, mockup.id);
+        updateRequirement(currentRequirement.id, { status: 'designing' });
+      }
     }
   };
 
@@ -51,9 +60,23 @@ export function MockupReview({ onGenerate, isGenerating }: MockupReviewProps) {
     onGenerate();
   };
 
+  const handleDownload = (imageUrl: string, variant: string) => {
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    link.download = `${currentRequirement?.title || 'mockup'}_${variant}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // 历史版本
+  const historyBatches = [...new Set(
+    currentRequirement?.mockupDesigns?.map(m => m.generationBatch) || []
+  )].sort((a, b) => b - a);
+
   if (!hasMockups) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center">
+      <div className="flex flex-col items-center justify-center h-full text-center py-12">
         <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
           <RefreshCw size={24} className="text-muted-foreground" />
         </div>
@@ -88,19 +111,27 @@ export function MockupReview({ onGenerate, isGenerating }: MockupReviewProps) {
         {/* Variant A */}
         <Card 
           className={cn(
-            'overflow-hidden cursor-pointer transition-all',
+            'overflow-hidden transition-all',
             selectedVariant === 'A' 
               ? 'ring-2 ring-primary ring-offset-2' 
               : 'hover:shadow-lg'
           )}
-          onClick={() => handleSelect('A')}
         >
-          <div className="aspect-[4/3] bg-muted relative">
-            <img 
-              src={demoMockupA} 
-              alt="方案 A" 
-              className="w-full h-full object-cover"
-            />
+          <div 
+            className="aspect-[16/9] bg-muted relative cursor-pointer"
+            onClick={() => handleSelect('A')}
+          >
+            {mockupA ? (
+              <img 
+                src={mockupA.imageUrl} 
+                alt="方案 A" 
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                未生成
+              </div>
+            )}
             {selectedVariant === 'A' && (
               <div className="absolute top-3 right-3 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center">
                 <Check size={18} />
@@ -110,7 +141,18 @@ export function MockupReview({ onGenerate, isGenerating }: MockupReviewProps) {
           <div className="p-4">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold">方案 A</h3>
-              <span className="text-xs text-muted-foreground">相同Prompt，不同随机结果</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">相同Prompt，不同随机结果</span>
+                {mockupA && (
+                  <button
+                    onClick={() => handleDownload(mockupA.imageUrl, 'A')}
+                    className="p-1.5 hover:bg-muted rounded"
+                    title="下载"
+                  >
+                    <Download size={14} />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </Card>
@@ -118,19 +160,27 @@ export function MockupReview({ onGenerate, isGenerating }: MockupReviewProps) {
         {/* Variant B */}
         <Card 
           className={cn(
-            'overflow-hidden cursor-pointer transition-all',
+            'overflow-hidden transition-all',
             selectedVariant === 'B' 
               ? 'ring-2 ring-primary ring-offset-2' 
               : 'hover:shadow-lg'
           )}
-          onClick={() => handleSelect('B')}
         >
-          <div className="aspect-[4/3] bg-muted relative">
-            <img 
-              src={demoMockupB} 
-              alt="方案 B" 
-              className="w-full h-full object-cover"
-            />
+          <div 
+            className="aspect-[16/9] bg-muted relative cursor-pointer"
+            onClick={() => handleSelect('B')}
+          >
+            {mockupB ? (
+              <img 
+                src={mockupB.imageUrl} 
+                alt="方案 B" 
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                未生成
+              </div>
+            )}
             {selectedVariant === 'B' && (
               <div className="absolute top-3 right-3 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center">
                 <Check size={18} />
@@ -140,11 +190,32 @@ export function MockupReview({ onGenerate, isGenerating }: MockupReviewProps) {
           <div className="p-4">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold">方案 B</h3>
-              <span className="text-xs text-muted-foreground">相同Prompt，不同随机结果</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">相同Prompt，不同随机结果</span>
+                {mockupB && (
+                  <button
+                    onClick={() => handleDownload(mockupB.imageUrl, 'B')}
+                    className="p-1.5 hover:bg-muted rounded"
+                    title="下载"
+                  >
+                    <Download size={14} />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </Card>
       </div>
+
+      {/* Prompt Display */}
+      {currentRequirement?.aiGeneratedContent?.generatedPrompt && (
+        <Card className="p-4 mb-6">
+          <h4 className="text-sm font-medium text-muted-foreground mb-2">生成使用的 Prompt</h4>
+          <pre className="text-xs bg-muted p-3 rounded overflow-auto max-h-32">
+            {currentRequirement.aiGeneratedContent.generatedPrompt}
+          </pre>
+        </Card>
+      )}
 
       {/* Action Bar */}
       <div className="flex items-center justify-center gap-4">
@@ -169,17 +240,48 @@ export function MockupReview({ onGenerate, isGenerating }: MockupReviewProps) {
       </div>
 
       {/* Generation History */}
-      <div className="mt-8 border-t pt-6">
-        <h4 className="text-sm font-medium text-muted-foreground mb-3">历史版本</h4>
-        <div className="flex gap-3">
-          <div className="w-24 h-16 rounded border overflow-hidden opacity-50">
-            <img src={demoMockupA} alt="版本 1" className="w-full h-full object-cover" />
-          </div>
-          <div className="w-24 h-16 rounded border overflow-hidden ring-2 ring-primary">
-            <img src={demoMockupB} alt="版本 2" className="w-full h-full object-cover" />
+      {historyBatches.length > 1 && (
+        <div className="mt-8 border-t pt-6">
+          <h4 className="text-sm font-medium text-muted-foreground mb-3">历史版本</h4>
+          <div className="flex gap-3">
+            {historyBatches.slice(1).map((batch) => {
+              const batchMockups = currentRequirement?.mockupDesigns?.filter(
+                m => m.generationBatch === batch
+              ) || [];
+              const firstMockup = batchMockups[0];
+              
+              return (
+                <div 
+                  key={batch} 
+                  className="w-24 h-16 rounded border overflow-hidden cursor-pointer hover:opacity-80"
+                  onClick={() => {
+                    // 切换到该批次
+                    const newMockups = currentRequirement?.mockupDesigns?.map(m => ({
+                      ...m,
+                      generationBatch: m.generationBatch === batch ? currentBatch + 1 : m.generationBatch,
+                    })) || [];
+                    updateRequirement(currentRequirement!.id, {
+                      mockupDesigns: newMockups,
+                    });
+                  }}
+                >
+                  {firstMockup ? (
+                    <img 
+                      src={firstMockup.imageUrl} 
+                      alt={`版本 ${batch}`} 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-muted flex items-center justify-center text-xs">
+                      v{batch}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
-      </div>
+      )}
 
       {/* Regenerate Confirmation Modal */}
       {showRegenerateConfirm && (

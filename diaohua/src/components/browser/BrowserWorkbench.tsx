@@ -1,15 +1,23 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { RotateCcw, ChevronLeft, ChevronRight, Camera } from 'lucide-react';
+import { ScreenshotService } from '@/services/screenshot';
 
-export function BrowserWorkbench() {
-  const [url, setUrl] = useState('https://www.example.com');
-  const [inputUrl, setInputUrl] = useState('https://www.example.com');
-  const webviewRef = useRef<HTMLWebViewElement>(null);
+interface BrowserWorkbenchProps {
+  onScreenshot?: (imageUrl: string, pageInfo: { url: string; title: string }) => void;
+}
+
+export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
+  const [url, setUrl] = useState('https://www.baidu.com');
+  const [inputUrl, setInputUrl] = useState('https://www.baidu.com');
+  const [isCapturing, setIsCapturing] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const handleNavigate = () => {
-    let targetUrl = inputUrl;
+    let targetUrl = inputUrl.trim();
+    if (!targetUrl) return;
+    
     if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
       targetUrl = 'https://' + targetUrl;
     }
@@ -18,22 +26,50 @@ export function BrowserWorkbench() {
   };
 
   const handleGoBack = () => {
-    if (webviewRef.current) {
-      webviewRef.current.goBack();
+    try {
+      iframeRef.current?.contentWindow?.history.back();
+    } catch {
+      // 跨域限制，忽略
     }
   };
 
   const handleGoForward = () => {
-    if (webviewRef.current) {
-      webviewRef.current.goForward();
+    try {
+      iframeRef.current?.contentWindow?.history.forward();
+    } catch {
+      // 跨域限制，忽略
     }
   };
 
   const handleReload = () => {
-    if (webviewRef.current) {
-      webviewRef.current.reload();
+    if (iframeRef.current) {
+      iframeRef.current.src = iframeRef.current.src;
     }
   };
+
+  const handleCapture = useCallback(async () => {
+    const iframe = iframeRef.current;
+    if (!iframe || !iframe.contentDocument?.body) {
+      alert('无法截图，请等待页面加载完成');
+      return;
+    }
+
+    setIsCapturing(true);
+    try {
+      // 获取当前页面信息
+      const pageUrl = iframe.contentWindow?.location?.href || url;
+      const pageTitle = iframe.contentDocument?.title || '未命名页面';
+      
+      // 使用 html2canvas 截取 iframe 内容
+      const imageUrl = await ScreenshotService.captureElement(iframe.contentDocument.body);
+      onScreenshot?.(imageUrl, { url: pageUrl, title: pageTitle });
+    } catch (error) {
+      console.error('截图失败:', error);
+      alert('截图失败，请重试');
+    } finally {
+      setIsCapturing(false);
+    }
+  }, [onScreenshot, url]);
 
   return (
     <div className="flex-1 flex flex-col bg-background">
@@ -72,23 +108,30 @@ export function BrowserWorkbench() {
           placeholder="输入网址..."
         />
         
-        <Button onClick={handleNavigate} size="sm">
+        <Button onClick={handleNavigate} size="sm" variant="secondary">
           访问
+        </Button>
+        
+        <Button 
+          onClick={handleCapture} 
+          size="sm" 
+          disabled={isCapturing}
+          className="gap-2"
+        >
+          <Camera size={14} />
+          {isCapturing ? '截图中...' : '截图'}
         </Button>
       </div>
 
-      {/* WebView Container */}
-      <div className="flex-1 relative">
-        {/* Note: In a real Tauri app, we'd use the webview tag or a custom protocol */}
-        {/* For this demo, we'll use an iframe as a placeholder */}
-        <div className="absolute inset-4 border rounded-lg overflow-hidden bg-white shadow-sm">
-          <iframe
-            src={url}
-            className="w-full h-full border-0"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-            title="Browser"
-          />
-        </div>
+      {/* Iframe Container */}
+      <div className="flex-1 relative bg-white">
+        <iframe
+          ref={iframeRef}
+          src={url}
+          className="w-full h-full border-0"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads"
+          title="Browser"
+        />
         
         {/* Overlay hint */}
         <div className="absolute bottom-6 right-6 bg-black/70 text-white text-xs px-3 py-1.5 rounded-full pointer-events-none">
