@@ -339,48 +339,48 @@ export function AnnotationEditor({
   };
 
   // 历史记录管理
-  const addToHistory = (newAnnotations: Annotation[]) => {
+  const addToHistory = useCallback((newAnnotations: Annotation[]) => {
     const newHistory = history.slice(0, historyIndex + 1);
     newHistory.push(newAnnotations);
     setHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
-  };
+  }, [history, historyIndex]);
 
-  const handleUndo = () => {
+  const handleUndo = useCallback(() => {
     if (historyIndex > 0) {
       const newIndex = historyIndex - 1;
       setHistoryIndex(newIndex);
       setAnnotations(history[newIndex]);
     }
-  };
+  }, [history, historyIndex]);
 
-  const handleRedo = () => {
+  const handleRedo = useCallback(() => {
     if (historyIndex < history.length - 1) {
       const newIndex = historyIndex + 1;
       setHistoryIndex(newIndex);
       setAnnotations(history[newIndex]);
     }
-  };
+  }, [history, historyIndex]);
 
-  const handleDeleteLast = () => {
+  const handleDeleteLast = useCallback(() => {
     if (annotations.length > 0) {
       const newAnnotations = annotations.slice(0, -1);
       setAnnotations(newAnnotations);
       addToHistory(newAnnotations);
     }
-  };
+  }, [annotations, addToHistory]);
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     onClose(annotations, description);
-  };
+  }, [onClose, annotations, description]);
 
-  // 键盘快捷键 - 必须在 handleSave/handleUndo/handleDeleteLast 定义之后
+  // 键盘快捷键
   useKeyboard({
     onSave: handleSave,
     onUndo: handleUndo,
     onDelete: handleDeleteLast,
     onEscape: onCancel,
-    isEnabled: !textInput.visible, // 文字输入时禁用
+    isEnabled: !textInput.visible,
   });
 
   // 重新绘制
