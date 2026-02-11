@@ -282,7 +282,7 @@ export function Dashboard() {
                     
                     <ExportButton
                       requirement={req}
-                      size="icon"
+                      size="sm"
                       variant="outline"
                     />
                     
@@ -306,7 +306,7 @@ export function Dashboard() {
                     ) : (
                       <Button
                         variant="ghost"
-                        size="icon"
+                        size="sm"
                         className="text-red-500 hover:text-red-600 hover:bg-red-50"
                         onClick={() => setDeleteConfirmId(req.id)}
                       >

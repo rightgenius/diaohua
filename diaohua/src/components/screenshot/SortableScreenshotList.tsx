@@ -75,14 +75,12 @@ function SortableScreenshotItem({
         />
 
         {/* Hover Overlay */}
-        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-        >
+        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
           <span className="text-white text-sm">编辑标注</span>
         </div>
 
         {/* Number Badge */}
-        <div className="absolute top-1 left-8 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded"
-        >
+        <div className="absolute top-1 left-8 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
           {index + 1}
         </div>
 
@@ -94,13 +92,12 @@ function SortableScreenshotItem({
           }}
           className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
         >
-          <Trash2 size={12} /
+          <Trash2 size={12} />
         </button>
 
         {/* Annotation Count */}
         {screenshot.annotations.length > 0 && (
-          <div className="absolute bottom-1 right-1 bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded"
-          >
+          <div className="absolute bottom-1 right-1 bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded">
             {screenshot.annotations.length} 标注
           </div>
         )}
@@ -174,7 +171,7 @@ export function SortableScreenshotList({
   };
 
   if (screenshots.length === 0 && emptyState) {
-    return <>{emptyState}>;
+    return <>{emptyState}</>;
   }
 
   return (

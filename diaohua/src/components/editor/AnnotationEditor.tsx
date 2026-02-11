@@ -63,15 +63,6 @@ export function AnnotationEditor({
   const currentAnnotationRef = useRef<Annotation | null>(null);
   const drawPointsRef = useRef<{ x: number; y: number }[]>([]);
 
-  // 键盘快捷键
-  useKeyboard({
-    onSave: handleSave,
-    onUndo: handleUndo,
-    onDelete: handleDeleteLast,
-    onEscape: onCancel,
-    isEnabled: !textInput.visible, // 文字输入时禁用
-  });
-
   // 加载图片
   useEffect(() => {
     if (!imageUrl) return;
@@ -382,6 +373,15 @@ export function AnnotationEditor({
   const handleSave = () => {
     onClose(annotations, description);
   };
+
+  // 键盘快捷键 - 必须在 handleSave/handleUndo/handleDeleteLast 定义之后
+  useKeyboard({
+    onSave: handleSave,
+    onUndo: handleUndo,
+    onDelete: handleDeleteLast,
+    onEscape: onCancel,
+    isEnabled: !textInput.visible, // 文字输入时禁用
+  });
 
   // 重新绘制
   useEffect(() => {

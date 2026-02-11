@@ -8,7 +8,7 @@ interface ExportButtonProps {
   requirement: Requirement;
   className?: string;
   variant?: 'default' | 'outline' | 'ghost';
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'default' | 'sm' | 'lg' | 'icon';
 }
 
 type ExportType = 'json' | 'markdown' | 'zip' | null;
@@ -40,154 +40,131 @@ export function ExportButton({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // 重置成功状态
-  useEffect(() => {
-    if (success) {
-      const timer = setTimeout(() => setSuccess(null), 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [success]);
-
-  const handleExportJSON = async () => {
-    setExporting('json');
+  const handleExport = async (type: 'json' | 'markdown' | 'zip') => {
+    if (exporting) return;
+    
+    setExporting(type);
+    setIsOpen(false);
+    
     try {
-      const json = exportToJSON(requirement);
-      const filename = `${requirement.title.replace(/[^\w\u4e00-\u9fa5]/g, '_')}_requirement.json`;
-      downloadFile(json, filename, 'application/json');
-      setSuccess('json');
-    } catch (error) {
-      console.error('导出 JSON 失败:', error);
-      alert('导出失败，请重试');
-    } finally {
-      setExporting(null);
-      setIsOpen(false);
-    }
-  };
-
-  const handleExportMarkdown = async () => {
-    setExporting('markdown');
-    try {
-      const markdown = exportToMarkdown(requirement);
-      const filename = `${requirement.title.replace(/[^\w\u4e00-\u9fa5]/g, '_')}_README.md`;
-      downloadFile(markdown, filename, 'text/markdown');
-      setSuccess('markdown');
-    } catch (error) {
-      console.error('导出 Markdown 失败:', error);
-      alert('导出失败，请重试');
-    } finally {
-      setExporting(null);
-      setIsOpen(false);
-    }
-  };
-
-  const handleExportZip = async () => {
-    setExporting('zip');
-    try {
-      const zipBlob = await createExportZip(requirement);
-      if (zipBlob) {
-        const url = URL.createObjectURL(zipBlob);
-        const a = document.createElement('a');
-        a.href = url;
-        const filename = `${requirement.title.replace(/[^\w\u4e00-\u9fa5]/g, '_')}_export.zip`;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        setSuccess('zip');
-      } else {
-        alert('创建 ZIP 失败，请确保已安装 jszip 依赖');
+      switch (type) {
+        case 'json': {
+          const json = exportToJSON(requirement);
+          downloadFile(json, `${requirement.title}.json`, 'application/json');
+          break;
+        }
+        case 'markdown': {
+          const md = exportToMarkdown(requirement);
+          downloadFile(md, `${requirement.title}.md`, 'text/markdown');
+          break;
+        }
+        case 'zip': {
+          const zip = await createExportZip(requirement);
+          if (zip) {
+            const url = URL.createObjectURL(zip);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${requirement.title}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }
+          break;
+        }
       }
+      
+      setSuccess(type);
+      setTimeout(() => setSuccess(null), 2000);
     } catch (error) {
-      console.error('导出 ZIP 失败:', error);
+      console.error('导出失败:', error);
       alert('导出失败，请重试');
     } finally {
       setExporting(null);
-      setIsOpen(false);
     }
   };
 
-  const getButtonIcon = () => {
-    if (exporting) return <Loader2 className="animate-spin" size={16} />;
-    if (success) return <Check size={16} className="text-green-500" />;
-    return <Download size={16} />;
-  };
-
-  const getButtonText = () => {
-    if (exporting === 'json') return '导出 JSON...';
-    if (exporting === 'markdown') return '导出 Markdown...';
-    if (exporting === 'zip') return '打包下载...';
-    if (success === 'json') return 'JSON 已导出';
-    if (success === 'markdown') return 'Markdown 已导出';
-    if (success === 'zip') return 'ZIP 已下载';
-    return '导出';
+  const getIcon = () => {
+    if (exporting) return <Loader2 className="w-4 h-4 animate-spin" />;
+    if (success) return <Check className="w-4 h-4" />;
+    return <Download className="w-4 h-4" />;
   };
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className={className} ref={dropdownRef}>
       <Button
         variant={variant}
         size={size}
         onClick={() => setIsOpen(!isOpen)}
         disabled={!!exporting}
-        className={className}
+        className="gap-2"
       >
-        {getButtonIcon()}
-        <span className="ml-1.5">{getButtonText()}</span>
+        {getIcon()}
+        {size !== 'icon' && (
+          exporting ? '导出中...' : success ? '已导出' : '导出'
+        )}
       </Button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-56 bg-popover border rounded-lg shadow-lg z-50 py-1 animate-in fade-in zoom-in-95 duration-100">
-          <div className="px-3 py-2 text-xs font-medium text-muted-foreground border-b">
-            导出选项
+        <div className="absolute right-0 mt-2 w-72 bg-card border rounded-lg shadow-lg z-50 overflow-hidden">
+          <div className="p-3 border-b">
+            <p className="font-medium">导出格式</p>
           </div>
           
-          <button
-            onClick={handleExportJSON}
-            disabled={!!exporting}
-            className="w-full px-3 py-2.5 flex items-center gap-3 hover:bg-muted transition-colors text-left disabled:opacity-50"
-          >
-            <div className="w-8 h-8 rounded bg-blue-100 flex items-center justify-center">
-              <FileJson size={18} className="text-blue-600" />
-            </div>
-            <div>
-              <div className="text-sm font-medium">导出 JSON</div>
-              <div className="text-xs text-muted-foreground">完整数据结构</div>
-            </div>
-          </button>
-
-          <button
-            onClick={handleExportMarkdown}
-            disabled={!!exporting}
-            className="w-full px-3 py-2.5 flex items-center gap-3 hover:bg-muted transition-colors text-left disabled:opacity-50"
-          >
-            <div className="w-8 h-8 rounded bg-purple-100 flex items-center justify-center">
-              <FileText size={18} className="text-purple-600" />
-            </div>
-            <div>
-              <div className="text-sm font-medium">导出 Markdown</div>
-              <div className="text-xs text-muted-foreground">PRD 文档格式</div>
-            </div>
-          </button>
-
-          <div className="border-t my-1" />
-
-          <button
-            onClick={handleExportZip}
-            disabled={!!exporting}
-            className="w-full px-3 py-2.5 flex items-center gap-3 hover:bg-muted transition-colors text-left disabled:opacity-50"
-          >
-            <div className="w-8 h-8 rounded bg-green-100 flex items-center justify-center">
-              <Package size={18} className="text-green-600" />
-            </div>
-            <div>
-              <div className="text-sm font-medium">下载图片包</div>
-              <div className="text-xs text-muted-foreground">包含所有截图和效果图</div>
-            </div>
-          </button>
+          <div className="p-2 space-y-1">
+            <ExportOption
+              icon={<FileJson className="w-5 h-5 text-blue-500" />}
+              label="JSON 格式"
+              description="AI Coding Agent 友好"
+              onClick={() => handleExport('json')}
+              isLoading={exporting === 'json'}
+            />
+            
+            <ExportOption
+              icon={<FileText className="w-5 h-5 text-purple-500" />}
+              label="Markdown PRD"
+              description="产品需求文档"
+              onClick={() => handleExport('markdown')}
+              isLoading={exporting === 'markdown'}
+            />
+            
+            <ExportOption
+              icon={<Package className="w-5 h-5 text-green-500" />}
+              label="完整包 (ZIP)"
+              description="包含所有图片"
+              onClick={() => handleExport('zip')}
+              isLoading={exporting === 'zip'}
+            />
+          </div>
         </div>
       )}
     </div>
+  );
+}
+
+interface ExportOptionProps {
+  icon: React.ReactNode;
+  label: string;
+  description: string;
+  onClick: () => void;
+  isLoading?: boolean;
+}
+
+function ExportOption({ icon, label, description, onClick, isLoading }: ExportOptionProps) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={isLoading}
+      className="w-full flex items-center gap-3 p-3 rounded-md hover:bg-muted transition-colors text-left disabled:opacity-50"
+    >
+      <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+        {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : icon}
+      </div>
+      <div>
+        <p className="font-medium text-sm">{label}</p>
+        <p className="text-xs text-muted-foreground">{description}</p>
+      </div>
+    </button>
   );
 }
 
