@@ -3,37 +3,30 @@ import { useConfigStore } from '@/stores/configStore';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Check, Info, ExternalLink } from 'lucide-react';
+import { Badge } from '@/components/ui/Badge';
+import { OSSConfigForm } from '@/components/settings/OSSConfigForm';
+import { Check, Info, ExternalLink, Key, Database, Sparkles } from 'lucide-react';
 
 export function Settings() {
-  const { geminiApiKey, oss, setGeminiApiKey, setOSSConfig, isConfigured } = useConfigStore();
+  const { geminiApiKey, setGeminiApiKey, isConfigured, isOSSConfigValid } = useConfigStore();
   const [showSuccess, setShowSuccess] = useState(false);
-  
-  const [formData, setFormData] = useState({
-    geminiApiKey: geminiApiKey || '',
-    qiniuAccessKey: oss.accessKey || '',
-    qiniuSecretKey: oss.secretKey || '',
-    qiniuBucket: oss.bucket || '',
-    qiniuDomain: oss.domain || '',
-  });
+  const [geminiKey, setGeminiKey] = useState(geminiApiKey || '');
+  const [hasGeminiChanges, setHasGeminiChanges] = useState(false);
 
-  const handleSave = () => {
-    setGeminiApiKey(formData.geminiApiKey);
-    setOSSConfig({
-      provider: 'qiniu',
-      region: 'z0',
-      bucket: formData.qiniuBucket,
-      accessKey: formData.qiniuAccessKey,
-      secretKey: formData.qiniuSecretKey,
-      domain: formData.qiniuDomain,
-    });
-    
+  const handleSaveGemini = () => {
+    setGeminiApiKey(geminiKey);
+    setHasGeminiChanges(false);
     setShowSuccess(true);
     setTimeout(() => setShowSuccess(false), 3000);
   };
 
+  const handleGeminiChange = (value: string) => {
+    setGeminiKey(value);
+    setHasGeminiChanges(value !== geminiApiKey);
+  };
+
   return (
-    <div className="p-8 max-w-2xl mx-auto h-full overflow-auto">
+    <div className="p-8 max-w-3xl mx-auto h-full overflow-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">设置</h1>
         <p className="text-muted-foreground">配置 API 密钥和存储服务</p>
@@ -63,107 +56,106 @@ export function Settings() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Google Gemini API</CardTitle>
-              {geminiApiKey && (
-                <span className="text-xs text-green-600 flex items-center gap-1">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-50 rounded-lg">
+                  <Sparkles className="w-5 h-5 text-blue-500" />
+                </div>
+                <div>
+                  <CardTitle>Google Gemini API</CardTitle>
+                  <CardDescription>
+                    用于 AI 需求优化和效果图生成
+                  </CardDescription>
+                </div>
+              </div>
+              {geminiApiKey && !hasGeminiChanges && (
+                <Badge variant="success" className="flex items-center gap-1">
                   <Check size={14} /> 已配置
-                </span>
+                </Badge>
               )}
             </div>
-            <CardDescription>
-              用于 AI 需求优化和效果图生成
-            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="text-sm font-medium mb-2 block">API Key</label>
+              <label className="text-sm font-medium mb-2 block flex items-center gap-2">
+                <Key size={16} /> API Key
+              </label>
               <Input
                 type="password"
                 placeholder="AIzaSy..."
-                value={formData.geminiApiKey}
-                onChange={(e) => setFormData({ ...formData, geminiApiKey: e.target.value })}
+                value={geminiKey}
+                onChange={(e) => handleGeminiChange(e.target.value)}
               />
               <p className="text-xs text-muted-foreground mt-2">
-                从 <a 
-                  href="https://aistudio.google.com/app/apikey" 
-                  target="_blank" 
+                从{' '}
+                <a
+                  href="https://aistudio.google.com/app/apikey"
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="text-primary hover:underline inline-flex items-center gap-1"
                 >
-                  Google AI Studio <ExternalLink size={12} />
-                </a> 获取
+                  Google AI Studio<ExternalLink size={12} />
+                </a>{' '}
+                获取
               </p>
             </div>
+            <Button
+              onClick={handleSaveGemini}
+              disabled={!hasGeminiChanges}
+              className="flex items-center gap-2"
+            >
+              <Check size={16} />
+              保存 API Key
+            </Button>
           </CardContent>
         </Card>
 
-        {/* Qiniu OSS */}
+        {/* OSS Configuration */}
+        <OSSConfigForm />
+
+        {/* Storage Info */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>七牛云存储</CardTitle>
-              {oss.bucket && oss.accessKey && (
-                <span className="text-xs text-green-600 flex items-center gap-1">
-                  <Check size={14} /> 已配置
-                </span>
-              )}
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-50 rounded-lg">
+                <Database className="w-5 h-5 text-green-500" />
+              </div>
+              <div>
+                <CardTitle>存储说明</CardTitle>
+                <CardDescription>
+                  了解数据存储方式
+                </CardDescription>
+              </div>
             </div>
-            <CardDescription>
-              用于云端存储截图和效果图（可选，默认保存到本地）
-            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Access Key</label>
-              <Input
-                type="password"
-                placeholder="..."
-                value={formData.qiniuAccessKey}
-                onChange={(e) => setFormData({ ...formData, qiniuAccessKey: e.target.value })}
-              />
+          <CardContent>
+            <div className="space-y-4 text-sm">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="font-medium mb-1">本地存储</p>
+                  <p className="text-muted-foreground text-xs">
+                    截图和标注数据默认保存在浏览器本地存储中
+                  </p>
+                </div>
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="font-medium mb-1">云端存储</p>
+                  <p className="text-muted-foreground text-xs">
+                    {isOSSConfigValid()
+                      ? '已启用七牛云 OSS，数据将自动同步到云端'
+                      : '配置七牛云后，数据将自动备份到云端'}
+                  </p>
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                <p>• 未配置 OSS 时，所有数据仅保存在本地</p>
+                <p>• 配置 OSS 后，截图将自动上传到云端</p>
+                <p>• 上传失败时会自动回退到本地存储</p>
+              </div>
             </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Secret Key</label>
-              <Input
-                type="password"
-                placeholder="..."
-                value={formData.qiniuSecretKey}
-                onChange={(e) => setFormData({ ...formData, qiniuSecretKey: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Bucket 名称</label>
-              <Input
-                placeholder="my-bucket"
-                value={formData.qiniuBucket}
-                onChange={(e) => setFormData({ ...formData, qiniuBucket: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">域名（可选）</label>
-              <Input
-                placeholder="https://xxx.qiniudn.com"
-                value={formData.qiniuDomain}
-                onChange={(e) => setFormData({ ...formData, qiniuDomain: e.target.value })}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              从 <a 
-                href="https://portal.qiniu.com/" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-primary hover:underline inline-flex items-center gap-1"
-              >
-                七牛云控制台 <ExternalLink size={12} />
-              </a> 获取密钥
-            </p>
           </CardContent>
         </Card>
-
-        <Button onClick={handleSave} className="w-full" size="lg">
-          保存配置
-        </Button>
       </div>
     </div>
   );
 }
+
+export default Settings;

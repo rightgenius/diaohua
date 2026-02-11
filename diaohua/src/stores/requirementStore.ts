@@ -20,6 +20,7 @@ interface RequirementState {
   updateScreenshot: (requirementId: string, screenshotId: string, updates: Partial<Screenshot>) => void;
   removeScreenshot: (requirementId: string, screenshotId: string) => void;
   updateAnnotations: (requirementId: string, screenshotId: string, annotations: Annotation[]) => void;
+  reorderScreenshots: (requirementId: string, newOrder: string[]) => void;
   
   // Mockup actions
   addMockupDesigns: (requirementId: string, mockups: MockupDesign[]) => void;
@@ -181,6 +182,31 @@ export const useRequirementStore = create<RequirementState>()(
                 }
               : state.currentRequirement,
         }));
+      },
+      
+      reorderScreenshots: (requirementId: string, newOrder: string[]) => {
+        set((state) => {
+          const req = state.requirements.find((r) => r.id === requirementId);
+          if (!req) return state;
+          
+          const screenshotMap = new Map(req.screenshots.map((s) => [s.id, s]));
+          const reorderedScreenshots = newOrder
+            .map((id) => screenshotMap.get(id))
+            .filter((s): s is Screenshot => !!s)
+            .map((s, index) => ({ ...s, order: index }));
+          
+          return {
+            requirements: state.requirements.map((r) =>
+              r.id === requirementId
+                ? { ...r, screenshots: reorderedScreenshots, updatedAt: new Date().toISOString() }
+                : r
+            ),
+            currentRequirement:
+              state.currentRequirement?.id === requirementId
+                ? { ...state.currentRequirement, screenshots: reorderedScreenshots }
+                : state.currentRequirement,
+          };
+        });
       },
       
       addMockupDesigns: (requirementId: string, mockups: MockupDesign[]) => {

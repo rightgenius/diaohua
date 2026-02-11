@@ -44,3 +44,7 @@ src-tauri/Cargo.lock
 # Temporary files
 *.tmp
 *.temp
+
+# Local environment config (contains secrets)
+.env.local
+config.local.json

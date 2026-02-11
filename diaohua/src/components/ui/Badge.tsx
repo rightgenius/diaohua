@@ -2,7 +2,7 @@ import { cn } from '@/utils/cn';
 
 interface BadgeProps {
   children: React.ReactNode;
-  variant?: 'default' | 'secondary' | 'destructive' | 'outline';
+  variant?: 'default' | 'secondary' | 'destructive' | 'outline' | 'success';
   className?: string;
 }
 
@@ -19,6 +19,7 @@ export function Badge({
           'border-transparent bg-primary text-primary-foreground hover:bg-primary/80': variant === 'default',
           'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80': variant === 'secondary',
           'border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80': variant === 'destructive',
+          'border-transparent bg-green-500 text-white hover:bg-green-500/80': variant === 'success',
           'text-foreground': variant === 'outline',
         },
         className

@@ -1,4 +1,4 @@
-import type { Requirement, Screenshot } from '@/types';
+import type { Requirement } from '@/types';
 
 export interface ExportPackage {
   json: string;
