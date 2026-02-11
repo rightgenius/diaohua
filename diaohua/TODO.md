@@ -19,6 +19,18 @@
 - [x] 创建 `src/components/settings/OSSConfigForm.tsx` - OSS 配置表单
 - [x] 修改 `src/pages/Settings.tsx` - 整合 OSS 配置界面
 
+### Phase 5: UI 组件与导出功能
+- [x] 创建 `src/components/ui/Loading.tsx` - 全局加载组件
+- [x] 创建 `src/components/ui/EmptyState.tsx` - 空状态组件
+- [x] 创建 `src/components/export/ExportButton.tsx` - 导出按钮组件
+- [x] 创建 `src/components/screenshot/SortableScreenshotList.tsx` - 可拖拽截图列表
+- [x] 修改 `src/pages/RequirementEditor.tsx` - 集成拖拽排序和导出功能
+- [x] 修改 `src/pages/Dashboard.tsx` - 集成空状态组件
+- [x] 完善 `src/utils/export.ts` - 添加 JSON/Markdown/ZIP 导出
+
+### 键盘快捷键
+- [x] 创建 `src/hooks/useKeyboard.ts` - 全局键盘快捷键支持
+
 ### 文档更新
 - [x] 创建 CHANGELOG.md
 - [x] 创建 TODO.md
@@ -35,10 +47,11 @@
 - [ ] 添加存储空间使用情况展示组件
 - [ ] 实现离线支持和网络恢复自动同步
 - [ ] 添加手动同步按钮
-- [ ] 添加数据导入/导出功能
 - [ ] 优化缩略图生成逻辑
 - [ ] 添加上传进度展示
 - [ ] 实现云端数据拉取功能
 - [ ] 添加数据冲突解决策略
 - [ ] 使用 Tauri 安全存储 API 替代简单加密
+- [ ] 添加 PRD 文档预览功能
+- [ ] 实现 AI 生成功能集成
 
