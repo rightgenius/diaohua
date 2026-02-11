@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Requirement, Screenshot, MockupDesign, Annotation, AIGeneratedContent, PRDVersion } from '@/types';
+import type { Requirement, Screenshot, MockupDesign, Annotation, AIGeneratedContent, PRDVersion, Comment } from '@/types';
 
 interface RequirementState {
   requirements: Requirement[];
@@ -29,6 +29,12 @@ interface RequirementState {
   // PRD actions
   savePRDContent: (requirementId: string, content: AIGeneratedContent, changeSummary?: string) => void;
   restorePRDVersion: (requirementId: string, version: PRDVersion) => void;
+  
+  // Comment actions
+  addComment: (requirementId: string, comment: Omit<Comment, 'id' | 'createdAt'>) => void;
+  resolveComment: (requirementId: string, commentId: string) => void;
+  deleteComment: (requirementId: string, commentId: string) => void;
+  getComments: (requirementId: string) => Comment[];
 }
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
@@ -353,6 +359,86 @@ export const useRequirementStore = create<RequirementState>()(
                 : state.currentRequirement,
           };
         });
+      },
+
+      addComment: (requirementId: string, comment: Omit<Comment, 'id' | 'createdAt'>) => {
+        set((state) => {
+          const newComment: Comment = {
+            ...comment,
+            id: `comment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            createdAt: new Date().toISOString(),
+          };
+
+          return {
+            requirements: state.requirements.map((r) =>
+              r.id === requirementId
+                ? {
+                    ...r,
+                    comments: [...(r.comments || []), newComment],
+                    updatedAt: new Date().toISOString(),
+                  }
+                : r
+            ),
+            currentRequirement:
+              state.currentRequirement?.id === requirementId
+                ? {
+                    ...state.currentRequirement,
+                    comments: [...(state.currentRequirement.comments || []), newComment],
+                  }
+                : state.currentRequirement,
+          };
+        });
+      },
+
+      resolveComment: (requirementId: string, commentId: string) => {
+        set((state) => ({
+          requirements: state.requirements.map((r) =>
+            r.id === requirementId
+              ? {
+                  ...r,
+                  comments: (r.comments || []).map((c) =>
+                    c.id === commentId ? { ...c, isResolved: true } : c
+                  ),
+                }
+              : r
+          ),
+          currentRequirement:
+            state.currentRequirement?.id === requirementId
+              ? {
+                  ...state.currentRequirement,
+                  comments: (state.currentRequirement.comments || []).map((c) =>
+                    c.id === commentId ? { ...c, isResolved: true } : c
+                  ),
+                }
+              : state.currentRequirement,
+        }));
+      },
+
+      deleteComment: (requirementId: string, commentId: string) => {
+        set((state) => ({
+          requirements: state.requirements.map((r) =>
+            r.id === requirementId
+              ? {
+                  ...r,
+                  comments: (r.comments || []).filter((c) => c.id !== commentId),
+                }
+              : r
+          ),
+          currentRequirement:
+            state.currentRequirement?.id === requirementId
+              ? {
+                  ...state.currentRequirement,
+                  comments: (state.currentRequirement.comments || []).filter(
+                    (c) => c.id !== commentId
+                  ),
+                }
+              : state.currentRequirement,
+        }));
+      },
+
+      getComments: (requirementId: string) => {
+        const req = get().requirements.find((r) => r.id === requirementId);
+        return req?.comments || [];
       },
     }),
     {
