@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { Download, FileJson, FileText, Package, Check, Loader2 } from 'lucide-react';
+import { Download, FileJson, FileText, Package, FilePdf, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { exportToJSON, exportToMarkdown, createExportZip, downloadFile } from '@/utils/export';
+import { exportToJSON, exportToMarkdown, createExportZip, downloadFile, exportToPDF } from '@/utils/export';
 import type { Requirement } from '@/types';
 
 interface ExportButtonProps {
@@ -11,7 +11,7 @@ interface ExportButtonProps {
   size?: 'default' | 'sm' | 'lg' | 'icon';
 }
 
-type ExportType = 'json' | 'markdown' | 'zip' | null;
+type ExportType = 'json' | 'markdown' | 'zip' | 'pdf' | null;
 
 /**
  * 导出按钮组件
@@ -40,12 +40,12 @@ export function ExportButton({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleExport = async (type: 'json' | 'markdown' | 'zip') => {
+  const handleExport = async (type: 'json' | 'markdown' | 'zip' | 'pdf') => {
     if (exporting) return;
-    
+
     setExporting(type);
     setIsOpen(false);
-    
+
     try {
       switch (type) {
         case 'json': {
@@ -56,6 +56,10 @@ export function ExportButton({
         case 'markdown': {
           const md = exportToMarkdown(requirement);
           downloadFile(md, `${requirement.title}.md`, 'text/markdown');
+          break;
+        }
+        case 'pdf': {
+          await exportToPDF(requirement);
           break;
         }
         case 'zip': {
@@ -73,7 +77,7 @@ export function ExportButton({
           break;
         }
       }
-      
+
       setSuccess(type);
       setTimeout(() => setSuccess(null), 2000);
     } catch (error) {
@@ -127,11 +131,19 @@ export function ExportButton({
               onClick={() => handleExport('markdown')}
               isLoading={exporting === 'markdown'}
             />
+
+            <ExportOption
+              icon={<FilePdf className="w-5 h-5 text-red-500" />}
+              label="PDF 报告"
+              description="包含所有截图和效果图"
+              onClick={() => handleExport('pdf')}
+              isLoading={exporting === 'pdf'}
+            />
             
             <ExportOption
               icon={<Package className="w-5 h-5 text-green-500" />}
               label="完整包 (ZIP)"
-              description="包含所有图片"
+              description="包含所有图片和文档"
               onClick={() => handleExport('zip')}
               isLoading={exporting === 'zip'}
             />
