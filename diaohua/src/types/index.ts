@@ -11,10 +11,10 @@ export interface Requirement {
   screenshots: Screenshot[];
   userDescription: string;
   aiGeneratedContent?: AIGeneratedContent;
-  prdVersions?: PRDVersion[];
   mockupDesigns?: MockupDesign[];
   selectedMockupId?: string;
   prdVersions?: PRDVersion[];
+  comments?: Comment[];
   createdAt: string;
   updatedAt: string;
 }
@@ -68,15 +68,6 @@ export interface AIGeneratedContent {
   generatedAt: string;
 }
 
-// PRD 版本历史
-export interface PRDVersion {
-  id: string;
-  content: AIGeneratedContent;
-  createdAt: string;
-  createdBy: string;
-  changeSummary?: string;
-}
-
 export interface DesignSuggestion {
   layout: {
     style: string;
@@ -110,6 +101,29 @@ export interface MockupDesign {
   };
   selected: boolean;
   createdAt: string;
+}
+
+// PRD Version History
+export interface PRDVersion {
+  id: string;
+  prdMarkdown: string;
+  generatedAt: string;
+  generatedPrompt: string;
+  designSuggestions: DesignSuggestion;
+}
+
+// Comment types
+export interface Comment {
+  id: string;
+  requirementId: string;
+  authorId: string;
+  authorName: string;
+  authorAvatar?: string;
+  content: string;
+  replyTo?: string;
+  replyToAuthor?: string;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 // Project types
@@ -167,11 +181,15 @@ export interface GeminiImageResponse {
   }[];
 }
 
-// PRD Version History
-export interface PRDVersion {
+// Notification types
+export interface Notification {
   id: string;
-  prdMarkdown: string;
-  generatedAt: string;
-  generatedPrompt: string;
-  designSuggestions: DesignSuggestion;
+  type: 'comment_reply' | 'requirement_update' | 'mockup_generated';
+  title: string;
+  content: string;
+  requirementId?: string;
+  requirementTitle?: string;
+  commentId?: string;
+  read: boolean;
+  createdAt: string;
 }
