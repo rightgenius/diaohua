@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useRequirementStore } from '@/stores/requirementStore';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { 
   Check, 
   RefreshCw, 
@@ -17,14 +18,16 @@ interface MockupReviewProps {
 }
 
 export function MockupReview({ onGenerate, isGenerating }: MockupReviewProps) {
-  const { 
-    currentRequirement, 
+  const {
+    currentRequirement,
     selectMockup,
     updateRequirement
   } = useRequirementStore();
-  
+
   const [selectedVariant, setSelectedVariant] = useState<'A' | 'B' | null>(null);
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   // 获取当前批次的效果图
   const currentBatch = currentRequirement?.mockupDesigns && currentRequirement.mockupDesigns.length > 0
@@ -44,6 +47,16 @@ export function MockupReview({ onGenerate, isGenerating }: MockupReviewProps) {
   const handleSelect = (variant: 'A' | 'B') => {
     setSelectedVariant(variant);
   };
+
+  const openLightbox = (index: number) => {
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+  };
+
+  const lightboxImages = currentMockups.map((m) => ({
+    src: m.imageUrl,
+    alt: `方案 ${m.variant}`,
+  }));
 
   const handleConfirm = () => {
     if (selectedVariant && currentRequirement) {
@@ -126,6 +139,10 @@ export function MockupReview({ onGenerate, isGenerating }: MockupReviewProps) {
                 src={mockupA.imageUrl} 
                 alt="方案 A" 
                 className="w-full h-full object-cover"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openLightbox(0);
+                }}
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground">
@@ -175,6 +192,10 @@ export function MockupReview({ onGenerate, isGenerating }: MockupReviewProps) {
                 src={mockupB.imageUrl} 
                 alt="方案 B" 
                 className="w-full h-full object-cover"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openLightbox(1);
+                }}
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground">
@@ -302,6 +323,13 @@ export function MockupReview({ onGenerate, isGenerating }: MockupReviewProps) {
           </Card>
         </div>
       )}
+      {/* Image Lightbox */}
+      <ImageLightbox
+        images={lightboxImages}
+        initialIndex={lightboxIndex}
+        isOpen={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+      />
     </div>
   );
 }

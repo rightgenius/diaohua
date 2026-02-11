@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Trash2, Edit2, ImageIcon } from 'lucide-react';
+import { GripVertical, Trash2, Edit2, ImageIcon, ZoomIn } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import type { Screenshot } from '@/types';
 import { EmptyScreenshot } from '@/components/ui/EmptyState';
+import { ImageLightbox } from '@/components/ui/ImageLightbox';
 
 interface ScreenshotListProps {
   screenshots: Screenshot[];
@@ -28,6 +29,8 @@ export function ScreenshotList({
   className,
 }: ScreenshotListProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   // 配置传感器
   const sensors = useSensors(
@@ -55,35 +58,55 @@ export function ScreenshotList({
     setActiveId(null);
   };
 
+  const openLightbox = (index: number) => {
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+  };
+
+  const lightboxImages = screenshots.map((s, i) => ({
+    src: s.imageUrl,
+    alt: s.title || `截图 ${i + 1}`,
+  }));
+
   if (screenshots.length === 0) {
     return <EmptyScreenshot />;
   }
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragStart={(e) => setActiveId(e.active.id as string)}
-      onDragEnd={handleDragEnd}
-    >
-      <SortableContext
-        items={screenshots.map((s) => s.id)}
-        strategy={verticalListSortingStrategy}
+    <>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={(e) => setActiveId(e.active.id as string)}
+        onDragEnd={handleDragEnd}
       >
-        <div className={cn('space-y-3', className)}>
-          {screenshots.map((screenshot, index) => (
-            <SortableScreenshotItem
-              key={screenshot.id}
-              screenshot={screenshot}
-              index={index}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              isActive={activeId === screenshot.id}
-            />
-          ))}
-        </div>
-      </SortableContext>
-    </DndContext>
+        <SortableContext
+          items={screenshots.map((s) => s.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className={cn('space-y-3', className)}>
+            {screenshots.map((screenshot, index) => (
+              <SortableScreenshotItem
+                key={screenshot.id}
+                screenshot={screenshot}
+                index={index}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                onView={() => openLightbox(index)}
+                isActive={activeId === screenshot.id}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+
+      <ImageLightbox
+        images={lightboxImages}
+        initialIndex={lightboxIndex}
+        isOpen={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+      />
+    </>
   );
 }
 
@@ -92,6 +115,7 @@ interface SortableScreenshotItemProps {
   index: number;
   onEdit: (screenshot: Screenshot) => void;
   onDelete: (screenshotId: string) => void;
+  onView?: () => void;
   isActive?: boolean;
 }
 
@@ -100,6 +124,7 @@ function SortableScreenshotItem({
   index,
   onEdit,
   onDelete,
+  onView,
   isActive,
 }: SortableScreenshotItemProps) {
   const {
@@ -139,22 +164,27 @@ function SortableScreenshotItem({
           <GripVertical className="w-4 h-4 text-muted-foreground" />
         </button>
 
-        {/* Thumbnail */}
-        <div
-          className="flex-shrink-0 w-24 aspect-video bg-card cursor-pointer overflow-hidden"
-          onClick={() => onEdit(screenshot)}
-        >
+        {/* Thumbnail with Zoom Button */}
+        <div className="flex-shrink-0 w-24 aspect-video bg-card relative overflow-hidden">
           {screenshot.thumbnailUrl || screenshot.imageUrl ? (
             <img
               src={screenshot.thumbnailUrl || screenshot.imageUrl}
               alt={`截图 ${index + 1}`}
-              className="w-full h-full object-cover hover:scale-105 transition-transform"
+              className="w-full h-full object-cover"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <ImageIcon className="w-6 h-6 text-muted-foreground/50" />
             </div>
           )}
+          {/* Zoom Overlay */}
+          <button
+            onClick={onView}
+            className="absolute inset-0 bg-black/0 hover:bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-all"
+            title="查看大图"
+          >
+            <ZoomIn className="w-6 h-6 text-white" />
+          </button>
         </div>
 
         {/* Info */}
