@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Clock, RotateCcw, ChevronDown, ChevronUp, FileText, User } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import type { Requirement, PRDVersion, AIGeneratedContent } from '@/types';
+import type { Requirement, PRDVersion } from '@/types';
 import { cn } from '@/utils/cn';
 
 interface PRDVersionHistoryProps {
@@ -24,28 +24,25 @@ export function PRDVersionHistory({
   const [expandedVersion, setExpandedVersion] = useState<string | null>(null);
 
   // 获取所有版本（当前 + 历史）
-  const allVersions: (PRDVersion & { isCurrent?: boolean })[] = [
+  const allVersions: (PRDVersion & { isCurrent?: boolean; createdBy?: string; changeSummary?: string })[] = [
     ...(requirement.prdVersions || []),
   ];
 
   // 添加当前版本到列表顶部
   if (requirement.aiGeneratedContent) {
-    allVersions.push({
+    allVersions.unshift({
       id: 'current',
-      content: requirement.aiGeneratedContent,
-      createdAt: requirement.aiGeneratedContent.generatedAt,
+      prdMarkdown: requirement.aiGeneratedContent.prdMarkdown,
+      generatedAt: requirement.aiGeneratedContent.generatedAt,
+      generatedPrompt: requirement.aiGeneratedContent.generatedPrompt,
+      designSuggestions: requirement.aiGeneratedContent.designSuggestions,
+      isCurrent: true,
       createdBy: 'AI',
       changeSummary: '当前版本',
-      isCurrent: true,
     });
   }
 
-  // 按时间倒序排列
-  const sortedVersions = allVersions.sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
-
-  if (sortedVersions.length === 0) {
+  if (allVersions.length === 0) {
     return (
       <Card className={cn('p-6 text-center', className)}>
         <Clock className="w-12 h-12 text-muted-foreground/50 mx-auto mb-3" />
@@ -77,11 +74,11 @@ export function PRDVersionHistory({
       <div className="flex items-center justify-between">
         <h3 className="font-medium">版本历史</h3>
         <span className="text-sm text-muted-foreground">
-          共 {sortedVersions.length} 个版本
+          共 {allVersions.length} 个版本
         </span>
       </div>
 
-      {sortedVersions.map((version, index) => (
+      {allVersions.map((version, index) => (
         <Card
           key={version.id}
           className={cn(
@@ -108,7 +105,7 @@ export function PRDVersionHistory({
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-medium">
-                    {version.isCurrent ? '当前版本' : `版本 ${sortedVersions.length - index}`}
+                    {version.isCurrent ? '当前版本' : `版本 ${allVersions.length - index}`}
                   </span>
                   {version.isCurrent && (
                     <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
@@ -118,12 +115,12 @@ export function PRDVersionHistory({
                 </div>
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1">
-                    <Clock size={12} /
-                    {formatDate(version.createdAt)}
+                    <Clock size={12} />
+                    {formatDate(version.generatedAt)}
                   </span>
                   <span className="flex items-center gap-1">
-                    <User size={12} /
-                    {version.createdBy}
+                    <User size={12} />
+                    {version.createdBy || 'AI'}
                   </span>
                 </div>
               </div>
@@ -167,20 +164,27 @@ export function PRDVersionHistory({
                 <div>
                   <h4 className="text-sm font-medium mb-2">布局风格</h4>
                   <p className="text-sm text-muted-foreground">
-                    {version.content.designSuggestions?.layout?.style || '未指定'}
+                    {version.designSuggestions?.layout?.style || '未指定'}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {version.designSuggestions?.layout?.description}
                   </p>
                 </div>
 
-                {version.content.designSuggestions?.styleGuide?.colors?.length > 0 && (
+                {version.designSuggestions?.styleGuide?.colors?.length > 0 && (
                   <div>
                     <h4 className="text-sm font-medium mb-2">配色方案</h4>
                     <div className="flex flex-wrap gap-2">
-                      {version.content.designSuggestions.styleGuide.colors.map(
+                      {version.designSuggestions.styleGuide.colors.map(
                         (color, i) => (
                           <span
                             key={i}
-                            className="text-xs bg-muted px-2 py-1 rounded"
+                            className="text-xs bg-muted px-2 py-1 rounded flex items-center gap-1"
                           >
+                            <span
+                              className="w-3 h-3 rounded-full border"
+                              style={{ backgroundColor: color }}
+                            />
                             {color}
                           </span>
                         )
@@ -189,11 +193,11 @@ export function PRDVersionHistory({
                   </div>
                 )}
 
-                {version.content.designSuggestions?.components?.length > 0 && (
+                {version.designSuggestions?.components?.length > 0 && (
                   <div>
                     <h4 className="text-sm font-medium mb-2">组件建议</h4>
                     <ul className="text-sm text-muted-foreground space-y-1">
-                      {version.content.designSuggestions.components.map(
+                      {version.designSuggestions.components.map(
                         (comp, i) => (
                           <li key={i}>
                             <span className="font-medium">{comp.name}</span>
@@ -208,7 +212,7 @@ export function PRDVersionHistory({
                 <div>
                   <h4 className="text-sm font-medium mb-2">生成 Prompt</h4>
                   <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-32">
-                    {version.content.generatedPrompt || '未生成'}
+                    {version.generatedPrompt || '未生成'}
                   </pre>
                 </div>
               </div>
@@ -218,24 +222,6 @@ export function PRDVersionHistory({
       ))}
     </div>
   );
-}
-
-/**
- * 创建新的 PRD 版本
- * 
- * 当 AI 生成新的 PRD 时调用此函数保存历史版本
- */
-export function createPRDVersion(
-  content: AIGeneratedContent,
-  changeSummary?: string
-): PRDVersion {
-  return {
-    id: `prd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    content,
-    createdAt: new Date().toISOString(),
-    createdBy: 'AI',
-    changeSummary,
-  };
 }
 
 export default PRDVersionHistory;

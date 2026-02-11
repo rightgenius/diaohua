@@ -29,9 +29,29 @@
 - [x] 更新 `src/pages/Dashboard.tsx` - 集成空状态组件
 - [x] 更新 `src/components/editor/AnnotationEditor.tsx` - 添加键盘快捷键支持
 
+### Phase 6: 最终功能补全
+- [x] 创建 `src/components/ui/ImageLightbox.tsx` - 图片放大查看组件
+- [x] 集成 Lightbox 到 ScreenshotList 和 MockupReview
+- [x] 安装 jspdf html2canvas 依赖
+- [x] 添加 `exportToPDF(requirement)` 函数
+- [x] ExportButton 添加 PDF 导出选项
+- [x] 修改 `src/types/index.ts` - 添加 PRDVersion 类型
+- [x] 给 Requirement 添加 `prdVersions` 字段
+- [x] 创建 `src/components/prd/PRDVersionHistory.tsx`
+- [x] requirementStore 添加 savePRDContent 和 restorePRDVersion
+- [x] 创建 `src/components/share/ShareButton.tsx` - 分享按钮
+- [x] 安装 qrcode.react 依赖
+- [x] 创建 `src/pages/Share.tsx` - 分享页面
+- [x] 修改 `src/types/index.ts` - 添加 Comment 类型
+- [x] 创建 `src/components/comments/CommentSection.tsx` - 评论系统
+- [x] requirementStore 添加评论相关 actions
+- [x] 创建 `src/components/notification/NotificationCenter.tsx` - 通知中心
+- [x] MainLayout 集成 NotificationCenter
+
 ### 文档更新
 - [x] 创建 CHANGELOG.md
 - [x] 创建 TODO.md
+- [x] 更新 TODO.md 标记所有功能完成
 
 ### TypeScript 类型修复
 - [x] 安装 @types/node
@@ -52,4 +72,4 @@
 - [ ] 使用 Tauri 安全存储 API 替代简单加密
 - [ ] 添加 PRD 文档预览功能
 - [ ] 实现 AI 生成功能集成
-
+- [ ] 完善通知系统 - 评论时自动生成通知
