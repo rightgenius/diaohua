@@ -19,17 +19,15 @@
 - [x] 创建 `src/components/settings/OSSConfigForm.tsx` - OSS 配置表单
 - [x] 修改 `src/pages/Settings.tsx` - 整合 OSS 配置界面
 
-### Phase 5: UI 组件与导出功能
-- [x] 创建 `src/components/ui/Loading.tsx` - 全局加载组件
+### Phase 5: 数据导出与UI优化
+- [x] 创建 `src/hooks/useKeyboard.ts` - 键盘快捷键 Hook (Ctrl+S, Ctrl+Z, Delete, ESC)
+- [x] 创建 `src/components/ui/Loading.tsx` - 加载状态组件
 - [x] 创建 `src/components/ui/EmptyState.tsx` - 空状态组件
-- [x] 创建 `src/components/export/ExportButton.tsx` - 导出按钮组件
-- [x] 创建 `src/components/screenshot/SortableScreenshotList.tsx` - 可拖拽截图列表
-- [x] 修改 `src/pages/RequirementEditor.tsx` - 集成拖拽排序和导出功能
-- [x] 修改 `src/pages/Dashboard.tsx` - 集成空状态组件
-- [x] 完善 `src/utils/export.ts` - 添加 JSON/Markdown/ZIP 导出
-
-### 键盘快捷键
-- [x] 创建 `src/hooks/useKeyboard.ts` - 全局键盘快捷键支持
+- [x] 创建 `src/components/export/ExportButton.tsx` - 导出按钮组件 (JSON/Markdown/ZIP)
+- [x] 创建 `src/components/editor/ScreenshotList.tsx` - 可拖拽截图列表
+- [x] 更新 `src/pages/RequirementEditor.tsx` - 集成拖拽排序和导出功能
+- [x] 更新 `src/pages/Dashboard.tsx` - 集成空状态组件
+- [x] 更新 `src/components/editor/AnnotationEditor.tsx` - 添加键盘快捷键支持
 
 ### 文档更新
 - [x] 创建 CHANGELOG.md
