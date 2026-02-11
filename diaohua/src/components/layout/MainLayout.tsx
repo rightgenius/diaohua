@@ -2,6 +2,9 @@ import { useConfigStore } from '@/stores/configStore';
 import { Settings, Home, Plus, FolderOpen } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { Link, useLocation } from 'react-router-dom';
+import { NotificationCenter } from '@/components/notification/NotificationCenter';
+import { useState, useCallback } from 'react';
+import type { Notification } from '@/types';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -10,6 +13,17 @@ interface MainLayoutProps {
 export function MainLayout({ children }: MainLayoutProps) {
   const location = useLocation();
   const { isConfigured } = useConfigStore();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  const handleMarkAsRead = useCallback((id: string) => {
+    setNotifications(prev =>
+      prev.map(n => (n.id === id ? { ...n, read: true } : n))
+    );
+  }, []);
+
+  const handleMarkAllAsRead = useCallback(() => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  }, []);
 
   return (
     <div className="flex h-screen bg-background">
@@ -54,8 +68,20 @@ export function MainLayout({ children }: MainLayoutProps) {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-hidden">
-        {children}
+      <main className="flex-1 overflow-hidden flex flex-col">
+        {/* Top bar with notifications */}
+        <div className="h-14 border-b flex items-center justify-end px-4 gap-2">
+          <NotificationCenter
+            notifications={notifications}
+            onMarkAsRead={handleMarkAsRead}
+            onMarkAllAsRead={handleMarkAllAsRead}
+          />
+        </div>
+        
+        {/* Page content */}
+        <div className="flex-1 overflow-hidden">
+          {children}
+        </div>
       </main>
     </div>
   );
