@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Requirement, Screenshot, MockupDesign, Annotation } from '@/types';
+import type { Requirement, Screenshot, MockupDesign, Annotation, AIGeneratedContent, PRDVersion } from '@/types';
 
 interface RequirementState {
   requirements: Requirement[];
@@ -25,6 +25,10 @@ interface RequirementState {
   // Mockup actions
   addMockupDesigns: (requirementId: string, mockups: MockupDesign[]) => void;
   selectMockup: (requirementId: string, mockupId: string) => void;
+  
+  // PRD actions
+  savePRDContent: (requirementId: string, content: AIGeneratedContent, changeSummary?: string) => void;
+  restorePRDVersion: (requirementId: string, version: PRDVersion) => void;
 }
 
 const generateId = () => Math.random().toString(36).substring(2, 15);

@@ -11,8 +11,10 @@ export interface Requirement {
   screenshots: Screenshot[];
   userDescription: string;
   aiGeneratedContent?: AIGeneratedContent;
+  prdVersions?: PRDVersion[];
   mockupDesigns?: MockupDesign[];
   selectedMockupId?: string;
+  prdVersions?: PRDVersion[];
   createdAt: string;
   updatedAt: string;
 }
@@ -60,10 +62,19 @@ export interface Annotation {
 export type AnnotationType = 'rectangle' | 'circle' | 'arrow' | 'draw' | 'text';
 
 export interface AIGeneratedContent {
-  prdMarkdownUrl: string;
+  prdMarkdown: string;
   designSuggestions: DesignSuggestion;
   generatedPrompt: string;
   generatedAt: string;
+}
+
+// PRD 版本历史
+export interface PRDVersion {
+  id: string;
+  content: AIGeneratedContent;
+  createdAt: string;
+  createdBy: string;
+  changeSummary?: string;
 }
 
 export interface DesignSuggestion {
@@ -154,4 +165,13 @@ export interface GeminiImageResponse {
     bytesBase64Encoded: string;
     mimeType: string;
   }[];
+}
+
+// PRD Version History
+export interface PRDVersion {
+  id: string;
+  prdMarkdown: string;
+  generatedAt: string;
+  generatedPrompt: string;
+  designSuggestions: DesignSuggestion;
 }

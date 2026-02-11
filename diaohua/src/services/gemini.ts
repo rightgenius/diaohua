@@ -1,5 +1,5 @@
 import { useConfigStore } from '@/stores/configStore';
-import type { Requirement } from '@/types';
+import type { Requirement, PRDVersion } from '@/types';
 
 export interface PRDGenerationResult {
   prdMarkdown: string;
@@ -278,4 +278,35 @@ export function useGeminiService(): GeminiService | null {
   const { geminiApiKey } = useConfigStore();
   if (!geminiApiKey) return null;
   return new GeminiService(geminiApiKey);
+}
+
+/**
+ * 创建 PRD 版本记录
+ */
+export function createPRDVersion(result: PRDGenerationResult): PRDVersion {
+  return {
+    id: `prd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    prdMarkdown: result.prdMarkdown,
+    generatedAt: new Date().toISOString(),
+    generatedPrompt: result.generatedPrompt,
+    designSuggestions: result.designSuggestions,
+  };
+}
+
+/**
+ * 将当前 PRD 保存到历史版本
+ */
+export function saveCurrentPRDToHistory(
+  requirement: Requirement,
+  aiGeneratedContent: NonNullable<Requirement['aiGeneratedContent']>
+): PRDVersion {
+  const version: PRDVersion = {
+    id: `prd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    prdMarkdown: aiGeneratedContent.prdMarkdown,
+    generatedAt: aiGeneratedContent.generatedAt,
+    generatedPrompt: aiGeneratedContent.generatedPrompt,
+    designSuggestions: aiGeneratedContent.designSuggestions,
+  };
+
+  return version;
 }
