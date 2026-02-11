@@ -106,10 +106,10 @@ export interface MockupDesign {
 // PRD Version History
 export interface PRDVersion {
   id: string;
-  prdMarkdown: string;
-  generatedAt: string;
-  generatedPrompt: string;
-  designSuggestions: DesignSuggestion;
+  content: AIGeneratedContent;
+  createdAt: string;
+  createdBy: string;
+  changeSummary?: string;
 }
 
 // Comment types

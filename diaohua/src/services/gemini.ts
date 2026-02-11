@@ -290,6 +290,8 @@ export function createPRDVersion(result: PRDGenerationResult): PRDVersion {
     generatedAt: new Date().toISOString(),
     generatedPrompt: result.generatedPrompt,
     designSuggestions: result.designSuggestions,
+    createdBy: 'AI',
+    changeSummary: 'AI 生成的 PRD',
   };
 }
 
@@ -297,15 +299,15 @@ export function createPRDVersion(result: PRDGenerationResult): PRDVersion {
  * 将当前 PRD 保存到历史版本
  */
 export function saveCurrentPRDToHistory(
-  requirement: Requirement,
+  _requirement: Requirement,
   aiGeneratedContent: NonNullable<Requirement['aiGeneratedContent']>
 ): PRDVersion {
   const version: PRDVersion = {
     id: `prd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    prdMarkdown: aiGeneratedContent.prdMarkdown,
-    generatedAt: aiGeneratedContent.generatedAt,
-    generatedPrompt: aiGeneratedContent.generatedPrompt,
-    designSuggestions: aiGeneratedContent.designSuggestions,
+    content: aiGeneratedContent,
+    createdAt: aiGeneratedContent.generatedAt,
+    createdBy: 'AI',
+    changeSummary: 'AI 生成的 PRD',
   };
 
   return version;

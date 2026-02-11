@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Calendar, User, Tag } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Calendar } from 'lucide-react';
 import { useRequirementStore } from '@/stores/requirementStore';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -98,7 +98,7 @@ export function Share() {
     alt: s.title || `截图 ${i + 1}`,
   }));
 
-  const mockupImages = requirement.mockupDesigns?.map((m, i) => ({
+  const mockupImages = requirement.mockupDesigns?.map((m) => ({
     src: m.imageUrl,
     alt: `效果图 ${m.variant}方案`,
   })) || [];

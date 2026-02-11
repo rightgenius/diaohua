@@ -1,16 +1,12 @@
-import { useState, useRef, useEffect } from 'react';
-import { Send, Reply, AtSign, MessageSquare, X, MoreHorizontal } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Send, Reply, AtSign, MessageSquare, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
-import { Avatar } from '@/components/ui/Avatar';
 import { cn } from '@/utils/cn';
 import type { Comment } from '@/types';
 
 interface CommentSectionProps {
   comments: Comment[];
-  requirementId: string;
-  currentUserId?: string;
-  currentUserName?: string;
   onAddComment: (content: string, replyTo?: string) => void;
   onDeleteComment?: (commentId: string) => void;
   className?: string;
@@ -18,9 +14,6 @@ interface CommentSectionProps {
 
 export function CommentSection({
   comments,
-  requirementId,
-  currentUserId = 'user',
-  currentUserName = '我',
   onAddComment,
   onDeleteComment,
   className,
@@ -174,7 +167,6 @@ export function CommentSection({
               replies={sortedComments.filter((c) => c.replyTo === comment.id)}
               onReply={() => setReplyingTo(comment)}
               onDelete={onDeleteComment}
-              currentUserId={currentUserId}
             />
           ))
         )}
@@ -188,7 +180,6 @@ interface CommentItemProps {
   replies: Comment[];
   onReply: () => void;
   onDelete?: (commentId: string) => void;
-  currentUserId: string;
 }
 
 function CommentItem({
@@ -196,10 +187,9 @@ function CommentItem({
   replies,
   onReply,
   onDelete,
-  currentUserId,
 }: CommentItemProps) {
   const [showActions, setShowActions] = useState(false);
-  const isAuthor = comment.authorId === currentUserId;
+  const isAuthor = comment.authorId === 'user';
 
   const formatDate = (date: string) => {
     const d = new Date(date);
@@ -268,12 +258,6 @@ function CommentItem({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-sm">{reply.authorName}</span>
-                  {reply.replyToAuthor && (
-                    <>
-                      <span className="text-xs text-muted-foreground">回复</span>
-                      <span className="text-xs text-primary">@{reply.replyToAuthor}</span>
-                    </>
-                  )}
                   <span className="text-xs text-muted-foreground">
                     {formatDate(reply.createdAt)}
                   </span>

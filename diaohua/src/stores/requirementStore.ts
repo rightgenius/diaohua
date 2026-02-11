@@ -281,7 +281,7 @@ export const useRequirementStore = create<RequirementState>()(
           // 如果已有 AI 生成内容，保存到历史版本
           const existingVersions = req?.prdVersions || [];
           let newVersions = existingVersions;
-          
+
           if (req?.aiGeneratedContent) {
             const version: PRDVersion = {
               id: `prd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -326,7 +326,7 @@ export const useRequirementStore = create<RequirementState>()(
           // 将当前版本保存到历史
           const currentVersions = req.prdVersions || [];
           let updatedVersions = currentVersions;
-          
+
           if (req.aiGeneratedContent) {
             const currentVersion: PRDVersion = {
               id: `prd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,

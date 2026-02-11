@@ -24,7 +24,7 @@ export function PRDVersionHistory({
   const [expandedVersion, setExpandedVersion] = useState<string | null>(null);
 
   // 获取所有版本（当前 + 历史）
-  const allVersions: (PRDVersion & { isCurrent?: boolean; createdBy?: string; changeSummary?: string })[] = [
+  const allVersions: (PRDVersion & { isCurrent?: boolean })[] = [
     ...(requirement.prdVersions || []),
   ];
 
@@ -36,9 +36,9 @@ export function PRDVersionHistory({
       generatedAt: requirement.aiGeneratedContent.generatedAt,
       generatedPrompt: requirement.aiGeneratedContent.generatedPrompt,
       designSuggestions: requirement.aiGeneratedContent.designSuggestions,
-      isCurrent: true,
       createdBy: 'AI',
       changeSummary: '当前版本',
+      isCurrent: true,
     });
   }
 
@@ -166,8 +166,8 @@ export function PRDVersionHistory({
                   <p className="text-sm text-muted-foreground">
                     {version.designSuggestions?.layout?.style || '未指定'}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {version.designSuggestions?.layout?.description}
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {version.designSuggestions?.layout?.description || '未提供'}
                   </p>
                 </div>
 
@@ -175,20 +175,18 @@ export function PRDVersionHistory({
                   <div>
                     <h4 className="text-sm font-medium mb-2">配色方案</h4>
                     <div className="flex flex-wrap gap-2">
-                      {version.designSuggestions.styleGuide.colors.map(
-                        (color, i) => (
+                      {version.designSuggestions.styleGuide.colors.map((color: string, i: number) => (
+                        <span
+                          key={i}
+                          className="text-xs bg-muted px-2 py-1 rounded flex items-center gap-1"
+                        >
                           <span
-                            key={i}
-                            className="text-xs bg-muted px-2 py-1 rounded flex items-center gap-1"
-                          >
-                            <span
-                              className="w-3 h-3 rounded-full border"
-                              style={{ backgroundColor: color }}
-                            />
-                            {color}
-                          </span>
-                        )
-                      )}
+                            className="w-3 h-3 rounded-full border"
+                            style={{ backgroundColor: color }}
+                          />
+                          {color}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -197,14 +195,12 @@ export function PRDVersionHistory({
                   <div>
                     <h4 className="text-sm font-medium mb-2">组件建议</h4>
                     <ul className="text-sm text-muted-foreground space-y-1">
-                      {version.designSuggestions.components.map(
-                        (comp, i) => (
-                          <li key={i}>
-                            <span className="font-medium">{comp.name}</span>
-                            {' '}<span className="text-xs">({comp.type})</span>
-                          </li>
-                        )
-                      )}
+                      {version.designSuggestions.components.map((comp, i) => (
+                        <li key={i}>
+                          <span className="font-medium">{comp.name}</span>
+                          <span className="text-xs"> ({comp.type})</span>
+                        </li>
+                      ))}
                     </ul>
                   </div>
                 )}

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Download, FileJson, FileText, Package, FilePdf, Check, Loader2 } from 'lucide-react';
+import { Download, FileJson, FileText, Package, FileCode, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { exportToJSON, exportToMarkdown, createExportZip, downloadFile, exportToPDF } from '@/utils/export';
 import type { Requirement } from '@/types';
@@ -133,7 +133,7 @@ export function ExportButton({
             />
 
             <ExportOption
-              icon={<FilePdf className="w-5 h-5 text-red-500" />}
+              icon={<FileCode className="w-5 h-5 text-red-500" />}
               label="PDF 报告"
               description="包含所有截图和效果图"
               onClick={() => handleExport('pdf')}

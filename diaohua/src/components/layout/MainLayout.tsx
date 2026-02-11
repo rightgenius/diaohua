@@ -4,7 +4,7 @@ import { cn } from '@/utils/cn';
 import { Link, useLocation } from 'react-router-dom';
 import { NotificationCenter } from '@/components/notification/NotificationCenter';
 import { useState, useCallback } from 'react';
-import type { Notification } from '@/components/notification/NotificationCenter';
+import type { Notification } from '@/types';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -17,16 +17,12 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   const handleMarkAsRead = useCallback((id: string) => {
     setNotifications(prev =>
-      prev.map(n => (n.id === id ? { ...n, isRead: true } : n))
+      prev.map(n => (n.id === id ? { ...n, read: true } : n))
     );
   }, []);
 
   const handleMarkAllAsRead = useCallback(() => {
-    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-  }, []);
-
-  const handleClearAll = useCallback(() => {
-    setNotifications([]);
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   }, []);
 
   return (
@@ -79,7 +75,6 @@ export function MainLayout({ children }: MainLayoutProps) {
             notifications={notifications}
             onMarkAsRead={handleMarkAsRead}
             onMarkAllAsRead={handleMarkAllAsRead}
-            onClearAll={handleClearAll}
           />
         </div>
         

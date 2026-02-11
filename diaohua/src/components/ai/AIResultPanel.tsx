@@ -67,7 +67,7 @@ export function AIResultPanel({ onBack }: AIResultPanelProps) {
       // 保存到需求中
       updateRequirement(currentRequirement.id, {
         aiGeneratedContent: {
-          prdMarkdownUrl: '', // 可以上传到 OSS
+          prdMarkdown: result.prdMarkdown,
           designSuggestions: result.designSuggestions,
           generatedPrompt: result.generatedPrompt,
           generatedAt: new Date().toISOString(),
