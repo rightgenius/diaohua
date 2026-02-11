@@ -266,6 +266,94 @@ export const useRequirementStore = create<RequirementState>()(
               : state.currentRequirement,
         }));
       },
+
+      savePRDContent: (requirementId: string, content: AIGeneratedContent, changeSummary?: string) => {
+        set((state) => {
+          const req = state.requirements.find((r) => r.id === requirementId);
+          const currentReq = state.currentRequirement;
+          
+          // 如果已有 AI 生成内容，保存到历史版本
+          const existingVersions = req?.prdVersions || [];
+          let newVersions = existingVersions;
+          
+          if (req?.aiGeneratedContent) {
+            const version: PRDVersion = {
+              id: `prd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              content: req.aiGeneratedContent,
+              createdAt: req.aiGeneratedContent.generatedAt,
+              createdBy: 'AI',
+              changeSummary: changeSummary || '历史版本',
+            };
+            newVersions = [...existingVersions, version];
+          }
+
+          return {
+            requirements: state.requirements.map((r) =>
+              r.id === requirementId
+                ? {
+                    ...r,
+                    aiGeneratedContent: content,
+                    prdVersions: newVersions,
+                    status: 'mockup_review',
+                    updatedAt: new Date().toISOString(),
+                  }
+                : r
+            ),
+            currentRequirement:
+              currentReq?.id === requirementId
+                ? {
+                    ...currentReq,
+                    aiGeneratedContent: content,
+                    prdVersions: newVersions,
+                    status: 'mockup_review',
+                  }
+                : currentReq,
+          };
+        });
+      },
+
+      restorePRDVersion: (requirementId: string, version: PRDVersion) => {
+        set((state) => {
+          const req = state.requirements.find((r) => r.id === requirementId);
+          if (!req) return state;
+
+          // 将当前版本保存到历史
+          const currentVersions = req.prdVersions || [];
+          let updatedVersions = currentVersions;
+          
+          if (req.aiGeneratedContent) {
+            const currentVersion: PRDVersion = {
+              id: `prd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              content: req.aiGeneratedContent,
+              createdAt: new Date().toISOString(),
+              createdBy: 'User',
+              changeSummary: '恢复之前的版本前保存',
+            };
+            updatedVersions = [...currentVersions, currentVersion];
+          }
+
+          return {
+            requirements: state.requirements.map((r) =>
+              r.id === requirementId
+                ? {
+                    ...r,
+                    aiGeneratedContent: version.content,
+                    prdVersions: updatedVersions,
+                    updatedAt: new Date().toISOString(),
+                  }
+                : r
+            ),
+            currentRequirement:
+              state.currentRequirement?.id === requirementId
+                ? {
+                    ...state.currentRequirement,
+                    aiGeneratedContent: version.content,
+                    prdVersions: updatedVersions,
+                  }
+                : state.currentRequirement,
+          };
+        });
+      },
     }),
     {
       name: 'diaohua-requirements',
