@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
+import { useKeyboard } from '@/hooks/useKeyboard';
 import { 
   Square, 
   Circle, 
@@ -12,7 +13,8 @@ import {
   Check,
   MousePointer2,
   Trash2,
-  Palette
+  Palette,
+  Keyboard
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import type { Annotation, AnnotationType } from '@/types';
@@ -60,6 +62,15 @@ export function AnnotationEditor({
   const startPosRef = useRef({ x: 0, y: 0 });
   const currentAnnotationRef = useRef<Annotation | null>(null);
   const drawPointsRef = useRef<{ x: number; y: number }[]>([]);
+
+  // 键盘快捷键
+  useKeyboard({
+    onSave: handleSave,
+    onUndo: handleUndo,
+    onDelete: handleDeleteLast,
+    onEscape: onCancel,
+    isEnabled: !textInput.visible, // 文字输入时禁用
+  });
 
   // 加载图片
   useEffect(() => {
@@ -453,7 +464,7 @@ export function AnnotationEditor({
               onClick={handleDeleteLast}
               disabled={annotations.length === 0}
               className="p-2 hover:bg-muted rounded-md text-red-500 disabled:opacity-30"
-              title="删除最后一个"
+              title="删除最后一个 (Delete)"
             >
               <Trash2 size={18} />
             </button>
@@ -463,6 +474,17 @@ export function AnnotationEditor({
             <span className="text-sm text-muted-foreground">
               {annotations.length} 个标注
             </span>
+            
+            {/* Keyboard Shortcuts Hint */}
+            <div className="hidden md:flex items-center gap-1 text-xs text-muted-foreground px-2 py-1 bg-muted rounded">
+              <Keyboard size={12} />
+              <span>Ctrl+S 保存</span>
+              <span className="mx-1">|</span>
+              <span>Ctrl+Z 撤销</span>
+              <span className="mx-1">|</span>
+              <span>ESC 关闭</span>
+            </div>
+            
             <Button variant="ghost" onClick={onCancel}>
               取消
             </Button>
