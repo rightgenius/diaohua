@@ -3,6 +3,7 @@ import { useRequirementStore } from '@/stores/requirementStore';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { EmptyRequirement } from '@/components/ui/EmptyState';
 import { 
   Plus, 
   Clock, 
@@ -17,7 +18,7 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '@/utils/cn';
 
 export function Dashboard() {
-  const { requirements, deleteRequirement, setCurrentRequirement } = useRequirementStore();
+  const { requirements, deleteRequirement, setCurrentRequirement, createRequirement } = useRequirementStore();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -35,6 +36,10 @@ export function Dashboard() {
   const handleDelete = (id: string) => {
     deleteRequirement(id);
     setDeleteConfirmId(null);
+  };
+
+  const handleCreateNew = () => {
+    navigate('/requirement');
   };
 
   const getStatusLabel = (status: string) => {
@@ -62,6 +67,29 @@ export function Dashboard() {
     };
     return colors[status] || colors.draft;
   };
+
+  // 如果没有需求，显示完整的空状态引导
+  if (requirements.length === 0 && !searchQuery) {
+    return (
+      <div className="h-full flex flex-col">
+        <div className="p-8 border-b">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">欢迎使用 雕花</h1>
+              <p className="text-muted-foreground mt-1">
+                截图标注需求，AI生成效果图，让产品设计更高效
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="flex-1 p-8">
+          <div className="max-w-4xl mx-auto h-full">
+            <EmptyRequirement onCreateNew={handleCreateNew} />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
