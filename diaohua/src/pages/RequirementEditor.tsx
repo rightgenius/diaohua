@@ -3,12 +3,13 @@ import { useRequirementStore } from '@/stores/requirementStore';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
+import { EmptyScreenshot } from '@/components/ui/EmptyState';
+import { ExportButton } from '@/components/export/ExportButton';
+import { SortableScreenshotList } from '@/components/screenshot/SortableScreenshotList';
 import { 
   Wand2, 
   Plus,
   Loader2,
-  Trash2,
-  Image as ImageIcon
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { BrowserWorkbench } from '@/components/browser/BrowserWorkbench';
@@ -26,6 +27,7 @@ export function RequirementEditor() {
     addScreenshot,
     updateScreenshot,
     removeScreenshot,
+    reorderScreenshots,
   } = useRequirementStore();
   
   const [showAnnotation, setShowAnnotation] = useState(false);
@@ -114,6 +116,12 @@ export function RequirementEditor() {
     setShowAnnotation(true);
   };
 
+  const handleReorderScreenshots = (newScreenshots: Screenshot[]) => {
+    if (!currentRequirement) return;
+    const newOrder = newScreenshots.map((s) => s.id);
+    reorderScreenshots(currentRequirement.id, newOrder);
+  };
+
   const handleAIGenerate = async () => {
     if (!currentRequirement || currentRequirement.screenshots.length === 0) {
       alert('请先添加至少一张截图');
@@ -193,67 +201,21 @@ export function RequirementEditor() {
         </div>
         
         <div className="flex-1 overflow-y-auto p-4">
-          <div className="space-y-3">
-            {currentRequirement.screenshots.map((screenshot, index) => (
-              <div
-                key={screenshot.id}
-                className="group relative bg-muted rounded-lg border overflow-hidden cursor-pointer hover:border-primary transition-colors"
-                onClick={() => handleEditScreenshot(screenshot)}
-              >
-                {/* Image */}
-                <div className="aspect-video relative">
-                  <img
-                    src={screenshot.thumbnailUrl || screenshot.imageUrl}
-                    alt={`截图 ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                  
-                  {/* Hover Overlay */}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <span className="text-white text-sm">编辑标注</span>
-                  </div>
-                  
-                  {/* Number Badge */}
-                  <div className="absolute top-1 left-1 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
-                    {index + 1}
-                  </div>
-                  
-                  {/* Delete Button */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteScreenshot(screenshot.id);
-                    }}
-                    className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                  
-                  {/* Annotation Count */}
-                  {screenshot.annotations.length > 0 && (
-                    <div className="absolute bottom-1 right-1 bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded">
-                      {screenshot.annotations.length} 标注
-                    </div>
-                  )}
-                </div>
-                
-                {/* URL Info */}
-                <div className="px-2 py-1.5 bg-card border-t">
-                  <p className="text-xs text-muted-foreground truncate" title={screenshot.pageUrl}>
-                    {screenshot.pageUrl || '未知页面'}
-                  </p>
-                </div>
-              </div>
-            ))}
-            
-            {currentRequirement.screenshots.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                <ImageIcon size={48} className="mx-auto mb-3 opacity-30" />
-                <p className="text-sm">暂无截图</p>
-                <p className="text-xs mt-1">在右侧浏览器中访问网页并截图</p>
-              </div>
-            )}
-          </div>
+          <SortableScreenshotList
+            screenshots={currentRequirement.screenshots}
+            onReorder={handleReorderScreenshots}
+            onEdit={handleEditScreenshot}
+            onDelete={handleDeleteScreenshot}
+            emptyState={
+              <EmptyScreenshot 
+                onScreenshot={() => {
+                  // 聚焦到浏览器区域
+                  const browserFrame = document.querySelector('[data-browser-frame]');
+                  browserFrame?.scrollIntoView({ behavior: 'smooth' });
+                }}
+              />
+            }
+          />
         </div>
 
         {/* Requirement List */}
@@ -292,25 +254,30 @@ export function RequirementEditor() {
 
           <div className="flex items-center gap-2">
             {currentRequirement.screenshots.length > 0 && (
-              <Button
-                onClick={handleAIGenerate}
-                disabled={isGenerating}
-                className="gap-2"
-              >
-                {isGenerating ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <Wand2 size={16} />
-                )}
-                {isGenerating ? '生成中...' : 'AI生成'}
-              </Button>
+              <>
+                <ExportButton requirement={currentRequirement} />
+                <Button
+                  onClick={handleAIGenerate}
+                  disabled={isGenerating}
+                  className="gap-2"
+                >
+                  {isGenerating ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Wand2 size={16} />
+                  )}
+                  {isGenerating ? '生成中...' : 'AI生成'}
+                </Button>
+              </>
             )}
           </div>
         </div>
 
         {/* Content Area */}
         <div className="flex-1 overflow-hidden flex flex-col">
-          <BrowserWorkbench onScreenshot={handleScreenshot} />
+          <div data-browser-frame>
+            <BrowserWorkbench onScreenshot={handleScreenshot} />
+          </div>
           
           {/* Description Input */}
           <div className="h-40 border-t p-4 bg-card">
