@@ -1,10 +1,47 @@
 # 开发任务清单
 
+## 快速开始 🚀
+
+### 开发模式
+```bash
+# 1. 启动 Vite 开发服务器
+npm run dev
+
+# 2. 新终端窗口，启动 Electron
+npm run electron:dev
+```
+
+### 打包发布
+```bash
+npm run electron:build
+```
+
+### 技术栈
+- **前端**: React + TypeScript + Vite + Tailwind CSS
+- **桌面框架**: Electron 34.0.0
+- **状态管理**: Zustand
+- **UI 组件**: 自定义组件 + Lucide Icons
+
 ## 已知问题 🐛
 
-- [ ] **截图功能黑屏问题** - 点击截图按钮后，截图内容显示为全黑，需要修复截图捕获逻辑
+- [x] **截图功能黑屏问题** - ✅ 已通过 Electron 迁移解决。现在支持三种截图方案：
+  - iframe 直接截图（同域）
+  - Electron `capturePage()`（跨域支持）
+  - 系统截图（`desktopCapturer`）
 
 ## 已完成 ✅
+
+### 框架迁移: Tauri → Electron
+- [x] 创建 `electron/main.cjs` - Electron 主进程
+- [x] 创建 `electron/preload.cjs` - Preload 脚本
+- [x] 创建 `src/types/electron.d.ts` - 类型声明
+- [x] 更新 `package.json` - 添加 Electron 依赖和脚本
+- [x] 更新 `vite.config.ts` - 适配 Electron
+- [x] 迁移 `src/services/oss.ts` - 使用 `window.electronAPI`
+- [x] 迁移 `src/components/browser/BrowserWorkbench.tsx` - 添加 Electron 截图
+- [x] 删除 Tauri 相关代码 (`src-tauri/`, `src/services/qiniu.ts`)
+- [x] 更新 `.gitignore` - 添加 Electron 相关忽略项
+- [x] 更新 `CHANGELOG.md` - 记录迁移变更
 
 ### Phase 1: 七牛云 SDK 集成
 - [x] 安装 qiniu npm 依赖
@@ -87,7 +124,7 @@
 - [ ] 添加上传进度展示
 - [ ] 实现云端数据拉取功能
 - [ ] 添加数据冲突解决策略
-- [ ] 使用 Tauri 安全存储 API 替代简单加密
+- [ ] 使用 Electron safeStorage API 替代简单加密
 - [ ] 添加 PRD 文档预览功能
 - [ ] 实现 AI 生成功能集成
 - [ ] 完善通知系统 - 评论时自动生成通知

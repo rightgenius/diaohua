@@ -15,7 +15,6 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
-import { invoke } from '@tauri-apps/api/core';
 import { ScreenshotEditor } from '@/components/screenshot/ScreenshotEditor';
 import { WebviewScreenshotService } from '@/services/webviewScreenshot';
 
@@ -23,7 +22,7 @@ interface BrowserWorkbenchProps {
   onScreenshot?: (imageUrl: string, pageInfo: { url: string; title: string }) => void;
 }
 
-type ScreenshotMethod = 'auto' | 'iframe-direct' | 'system';
+type ScreenshotMethod = 'auto' | 'iframe-direct' | 'system' | 'electron-webview';
 
 export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
   const [url, setUrl] = useState('http://10.20.3.2:9780/');
@@ -109,12 +108,13 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
           return 'iframe-direct';
         }
       } catch {
-        // 跨域，无法访问
+        // 跨域，使用 Electron webview 截图
+        return 'electron-webview';
       }
     }
     
-    // 默认使用系统截图
-    return 'system';
+    // 默认使用 Electron webview 截图
+    return 'electron-webview';
   }, [screenshotMethod]);
 
   // 截图功能 - 支持多种截图方案
@@ -143,14 +143,25 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
           console.warn('[截图] iframe 截图失败:', result.error);
           setError(
             `iframe 截图失败: ${result.error}\n\n` +
-            '该页面可能跨域限制，建议切换到「系统截图」模式。'
+            '该页面可能跨域限制，建议切换到「Electron 截图」模式。'
           );
           return;
         }
+      } else if (actualMethod === 'electron-webview') {
+        // 使用 Electron 网页截图（支持跨域）
+        console.log('[截图] 使用 Electron 网页截图方案');
+        const normalized = normalizeUrl(url);
+        const imageUrl = await window.electronAPI.captureWebpage(normalized, {
+          width: 1920,
+          height: 1080,
+          waitTime: 3000,
+        });
+        setCapturedImage(imageUrl);
+        setShowEditor(true);
       } else {
-        // 使用系统截图（xcap）
+        // 使用系统截图
         console.log('[截图] 使用系统截图方案');
-        const imageUrl = await invoke('capture_screen') as string;
+        const imageUrl = await window.electronAPI.captureScreen();
         setCapturedImage(imageUrl);
         setShowEditor(true);
       }
@@ -173,7 +184,7 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
     } finally {
       setIsCapturing(false);
     }
-  }, [getActualScreenshotMethod]);
+  }, [getActualScreenshotMethod, url]);
 
   // 快速检测当前页面是否支持 WebView 截图
   const checkWebviewSupport = useCallback(async () => {
@@ -185,7 +196,7 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
     if (result.hasCSPLimitation) {
       setError(
         `当前页面${result.message}\n` +
-        '建议使用系统截图 (Cmd+Shift+4) 后粘贴 (Cmd+V)'
+        '建议使用 Electron 截图模式或系统截图 (Cmd+Shift+4) 后粘贴 (Cmd+V)'
       );
     } else {
       setError(null);
@@ -263,6 +274,7 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
   const getMethodLabel = (method: ScreenshotMethod) => {
     switch (method) {
       case 'iframe-direct': return 'iframe直接截图';
+      case 'electron-webview': return 'Electron截图';
       case 'system': return '系统截图';
       case 'auto': return '智能选择';
     }
@@ -359,7 +371,7 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
             </Button>
             
             {showMethodMenu && (
-              <div className="absolute right-0 top-full mt-1 w-52 bg-white border rounded-md shadow-lg z-50 py-1">
+              <div className="absolute right-0 top-full mt-1 w-56 bg-white border rounded-md shadow-lg z-50 py-1">
                 <button
                   className={cn(
                     "w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2",
@@ -373,7 +385,7 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
                   <LayoutTemplate size={14} className="text-blue-500" />
                   <div>
                     <div className="font-medium">智能选择</div>
-                    <div className="text-xs text-muted-foreground">同域用iframe，跨域用系统</div>
+                    <div className="text-xs text-muted-foreground">同域用iframe，跨域用Electron</div>
                   </div>
                 </button>
                 <button
@@ -396,6 +408,22 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
                 <button
                   className={cn(
                     "w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2",
+                    screenshotMethod === 'electron-webview' && "bg-muted"
+                  )}
+                  onClick={() => {
+                    setScreenshotMethod('electron-webview');
+                    setShowMethodMenu(false);
+                  }}
+                >
+                  <Monitor size={14} className="text-purple-500" />
+                  <div>
+                    <div className="font-medium">Electron截图</div>
+                    <div className="text-xs text-muted-foreground">支持跨域，无需系统权限</div>
+                  </div>
+                </button>
+                <button
+                  className={cn(
+                    "w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2",
                     screenshotMethod === 'system' && "bg-muted"
                   )}
                   onClick={() => {
@@ -403,10 +431,10 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
                     setShowMethodMenu(false);
                   }}
                 >
-                  <Monitor size={14} className="text-purple-500" />
+                  <Monitor size={14} className="text-orange-500" />
                   <div>
                     <div className="font-medium">系统截图</div>
-                    <div className="text-xs text-muted-foreground">需要屏幕录制权限</div>
+                    <div className="text-xs text-muted-foreground">截取整个屏幕</div>
                   </div>
                 </button>
               </div>

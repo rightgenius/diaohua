@@ -4,6 +4,7 @@
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
+![Electron](https://img.shields.io/badge/Electron-34.0.0-47848F.svg)
 
 ## 📖 项目简介
 

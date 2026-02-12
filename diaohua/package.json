@@ -3,20 +3,20 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "electron:dev": "NODE_ENV=development electron .",
+    "electron:build": "npm run build && electron-builder",
+    "electron:preview": "npm run build && electron .",
+    "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@tauri-apps/api": "^2.0.0",
-    "@tauri-apps/plugin-shell": "^2.0.0",
     "axios": "^1.6.2",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
@@ -26,7 +26,6 @@
     "jszip": "^3.10.1",
     "lucide-react": "^0.294.0",
     "modern-screenshot": "^4.6.8",
-    "qiniu": "^7.15.1",
     "qiniu-js": "^3.4.2",
     "qrcode.react": "^4.2.0",
     "react": "^18.2.0",
@@ -36,17 +35,61 @@
     "zustand": "^4.4.7"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.0.0",
-    "@types/jspdf": "^1.3.3",
     "@types/node": "^25.2.3",
     "@types/react": "^18.2.15",
     "@types/react-dom": "^18.2.7",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.16",
+    "electron": "^34.5.8",
+    "electron-builder": "^25.1.8",
     "postcss": "^8.4.32",
     "tailwindcss": "^3.3.6",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.0.2",
     "vite": "^5.0.0"
+  },
+  "build": {
+    "appId": "com.diaohua.app",
+    "productName": "雕花",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
   }
 }

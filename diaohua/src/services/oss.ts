@@ -1,5 +1,4 @@
 import { useConfigStore } from '@/stores/configStore';
-import { invoke } from '@tauri-apps/api/core';
 import type { OSSConfig } from '@/types';
 
 export interface UploadResult {
@@ -18,10 +17,11 @@ interface QiniuConfig {
   secretKey: string;
   bucket: string;
   domain?: string;
+  region?: string;
 }
 
 /**
- * OSS 服务类 - 封装七牛云上传逻辑，通过 Tauri 后端执行
+ * OSS 服务类 - 封装七牛云上传逻辑
  */
 export class OSSService {
   private config: OSSConfig;
@@ -59,6 +59,7 @@ export class OSSService {
       secretKey: this.config.secretKey,
       bucket: this.config.bucket,
       domain: this.config.domain,
+      region: this.config.region,
     };
   }
 
@@ -99,13 +100,13 @@ export class OSSService {
         throw new Error('Unsupported file type');
       }
 
-      // 调用 Tauri 后端上传
-      const result = await invoke('qiniu_upload_base64', {
-        config: this.getQiniuConfig(),
+      // 使用 Electron API 上传
+      const result = await window.electronAPI.qiniuUpload(
+        this.getQiniuConfig(),
         base64Data,
         key,
-        mimeType: options?.mimeType || 'image/png',
-      }) as { key: string; url: string };
+        options?.mimeType || 'image/png'
+      );
 
       if (options?.onProgress) {
         options.onProgress(100);
@@ -193,9 +194,7 @@ export class OSSService {
     }
 
     try {
-      const result = await invoke('qiniu_test_connection', {
-        config: this.getQiniuConfig(),
-      }) as { success: boolean; message: string };
+      const result = await window.electronAPI.qiniuTestConnection(this.getQiniuConfig());
       return result;
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
