@@ -61,8 +61,10 @@
       "electron/**/*",
       "package.json"
     ],
+    "icon": "public/icon.png",
     "mac": {
       "category": "public.app-category.productivity",
+      "icon": "public/icon.icns",
       "target": [
         {
           "target": "dmg",
@@ -74,6 +76,7 @@
       ]
     },
     "win": {
+      "icon": "public/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -84,6 +87,7 @@
       ]
     },
     "linux": {
+      "icon": "public/icon.png",
       "target": [
         {
           "target": "AppImage",

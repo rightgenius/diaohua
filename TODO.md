@@ -204,4 +204,12 @@ async function captureWebpage(url) {
 
 ---
 
-## 当前任务：更换 Electron App LOGO
+## 当前任务：更换 Electron App LOGO ✅ 已完成
+
+- [x] 生成黑底白字「雕」字 Logo（与界面一致）
+- [x] 创建多尺寸 PNG 图标（16x16 到 1024x1024）
+- [x] 生成 macOS .icns 图标集
+- [x] 生成 Windows .ico 图标
+- [x] 配置 package.json 各平台图标路径
+- [x] 更新 index.html favicon
+- [x] 更新 AGENTS.md 文档

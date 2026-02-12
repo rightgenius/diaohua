@@ -28,12 +28,24 @@ let mainWindow = null;
 
 // 创建主窗口
 function createMainWindow() {
+  // 根据平台选择图标
+  const iconPath = (() => {
+    if (process.platform === 'win32') {
+      return path.join(__dirname, '../public/icon.ico');
+    }
+    // macOS 和 Linux 使用 PNG
+    return path.join(__dirname, '../public/icon.png');
+  })();
+  
+  safeLog('[Electron] 使用图标:', iconPath);
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1000,
     minHeight: 700,
     title: '雕花 - 产品经理需求标注工具',
+    icon: iconPath,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -43,6 +55,19 @@ function createMainWindow() {
     show: false, // 先不显示，等加载完成再显示
     center: true,
   });
+
+  // macOS: 设置 Dock 图标（使用 PNG，ICNS 只用于打包）
+  if (process.platform === 'darwin') {
+    const dockIconPath = path.join(__dirname, '../public/icon.png');
+    if (fs.existsSync(dockIconPath)) {
+      try {
+        app.dock.setIcon(dockIconPath);
+        safeLog('[Electron] Dock 图标已设置');
+      } catch (e) {
+        safeError('[Electron] 设置 Dock 图标失败:', e.message);
+      }
+    }
+  }
 
   // 加载应用
   const isDev = process.env.NODE_ENV === 'development';
