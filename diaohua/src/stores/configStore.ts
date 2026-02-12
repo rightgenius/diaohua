@@ -200,7 +200,7 @@ export const useConfigStore = create<ConfigState>()(
     }),
     {
       name: 'diaohua-config',
-      // 加载时解密敏感字段
+      // 加载时解密敏感字段，然后加载本地配置（本地配置优先级更高）
       onRehydrateStorage: () => (state) => {
         if (state) {
           // 解密敏感字段
@@ -213,6 +213,10 @@ export const useConfigStore = create<ConfigState>()(
           }
           state.oss = newOss;
         }
+        // 延迟加载本地配置（确保 store 完全初始化后执行）
+        setTimeout(() => {
+          useConfigStore.getState().loadLocalConfig();
+        }, 0);
       },
       // 存储前加密敏感字段
       partialize: (state) => {
