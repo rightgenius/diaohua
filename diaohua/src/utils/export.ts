@@ -286,28 +286,18 @@ export async function exportToPDF(requirement: Requirement): Promise<void> {
   // 使用 html2canvas + jsPDF 手动实现，避免 html2pdf.js 的问题
   const html2canvas = (await import('html2canvas')).default;
   
-  // 创建容器 - 使用 visibility 而非 display:none 确保可渲染
+  // 创建容器 - 移出视口渲染，避免闪烁
   const htmlContent = generatePDFHTML(requirement);
-  const wrapper = document.createElement('div');
-  wrapper.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 794px;
-    min-height: 100px;
-    z-index: 99999;
-    background: white;
-  `;
-  
   const container = document.createElement('div');
   container.innerHTML = htmlContent;
   container.style.cssText = `
+    position: absolute;
+    left: -10000px;
+    top: 0;
     width: 794px;
     background: white;
   `;
-  
-  wrapper.appendChild(container);
-  document.body.appendChild(wrapper);
+  document.body.appendChild(container);
 
   // 等待渲染和图片加载
   await new Promise(resolve => setTimeout(resolve, 500));
@@ -378,7 +368,7 @@ export async function exportToPDF(requirement: Requirement): Promise<void> {
 
     pdf.save(`${requirement.title}_report.pdf`);
   } finally {
-    document.body.removeChild(wrapper);
+    document.body.removeChild(container);
   }
 }
 
