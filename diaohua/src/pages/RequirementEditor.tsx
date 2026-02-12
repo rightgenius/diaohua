@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRequirementStore } from '@/stores/requirementStore';
+import { useGeminiService } from '@/services/gemini';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
@@ -122,19 +123,44 @@ export function RequirementEditor() {
     reorderScreenshots(currentRequirement.id, newOrder);
   };
 
+  const geminiService = useGeminiService();
+
   const handleAIGenerate = async () => {
     if (!currentRequirement || currentRequirement.screenshots.length === 0) {
       alert('请先添加至少一张截图');
       return;
     }
     
+    if (!geminiService) {
+      alert('请先配置 Gemini API Key');
+      return;
+    }
+    
     setIsGenerating(true);
     
-    // 模拟 AI 生成
-    setTimeout(() => {
+    try {
+      const result = await geminiService.generatePRD({
+        requirement: currentRequirement,
+      });
+      
+      // 保存 AI 生成结果
+      updateRequirement(currentRequirement.id, {
+        aiGeneratedContent: {
+          prdMarkdown: result.prdMarkdown,
+          designSuggestions: result.designSuggestions,
+          generatedPrompt: result.generatedPrompt,
+          generatedAt: new Date().toISOString(),
+        },
+        status: 'ai_generating',
+      });
+      
+      alert('PRD 生成成功！请查看 AI 结果面板');
+    } catch (error) {
+      console.error('AI 生成失败:', error);
+      alert(error instanceof Error ? error.message : 'AI 生成失败，请重试');
+    } finally {
       setIsGenerating(false);
-      alert('AI 生成功能需要配置 Gemini API，请先前往设置页面配置');
-    }, 1500);
+    }
   };
 
   if (showNewDialog) {
