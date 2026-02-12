@@ -550,28 +550,7 @@ ipcMain.handle('load-local-config', async () => {
       if (fs.existsSync(configPath)) {
         safeLog('[Electron] 找到本地配置文件:', configPath);
         const content = fs.readFileSync(configPath, 'utf-8');
-        
-        // 移除注释（简单处理 JSON 中的注释）
-        // 注意：不能匹配 URL 中的 //（如 https://）
-        // 方法1: 单行注释 //（行首或空白字符后，不是 :// 后）
-        // 方法2: 多行注释 /* */
-        let jsonContent = content
-          .replace(/(^|\s)\/\/.*$/gm, '$1')  // 单行注释（行首或空白后的 //）
-          .replace(/\/\*[\s\S]*?\*\//g, '');  // 多行注释
-        
-        // 清理可能的无效字符（保留基本打印字符和中文）
-        jsonContent = jsonContent.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
-        
-        safeLog('[Electron] 配置文件内容长度:', jsonContent.length);
-        
-        let config;
-        try {
-          config = JSON.parse(jsonContent);
-        } catch (parseError) {
-          safeError('[Electron] JSON 解析失败:', parseError.message);
-          safeError('[Electron] 内容前100字符:', jsonContent.substring(0, 100));
-          throw parseError;
-        }
+        const config = JSON.parse(content);
         
         // 规范化配置结构
         const result = {
