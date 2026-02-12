@@ -55,7 +55,7 @@ export class GeminiService {
     const prompt = this.buildPRDPrompt(requirement);
     console.log('[GeminiService.generatePRD] Prompt 长度:', prompt.length);
     
-    const url = `${this.baseUrl}/models/gemini-1.5-flash:generateContent?key=${this.apiKey}`;
+    const url = `${this.baseUrl}/models/gemini-1.5-flash-latest:generateContent?key=${this.apiKey}`;
     console.log('[GeminiService.generatePRD] 请求 URL:', url.substring(0, 60) + '...');
     
     const response = await fetch(url, {
@@ -66,7 +66,6 @@ export class GeminiService {
         generationConfig: { 
           temperature: 0.7, 
           maxOutputTokens: 4096,
-          responseMimeType: 'application/json'
         },
       }),
     });
@@ -99,7 +98,7 @@ export class GeminiService {
 
     // 调用 Imagen API 生成图片
     const response = await fetch(
-      `${this.baseUrl}/models/imagen-3.0-generate-002:predict?key=${this.apiKey}`,
+      `${this.baseUrl}/models/imagen-3.0-generate-001:predict?key=${this.apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
