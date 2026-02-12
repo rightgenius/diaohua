@@ -23,7 +23,7 @@ export interface AnnotationEditorProps {
   imageUrl?: string;
   initialAnnotations?: Annotation[];
   initialDescription?: string;
-  onClose: (annotations: Annotation[], description: string) => void;
+  onClose: (annotations: Annotation[], description: string, annotatedImageUrl?: string) => void;
   onCancel: () => void;
 }
 
@@ -371,7 +371,13 @@ export function AnnotationEditor({
   }, [annotations, addToHistory]);
 
   const handleSave = useCallback(() => {
-    onClose(annotations, description);
+    // 导出带标注的图片
+    const canvas = canvasRef.current;
+    let annotatedImageUrl: string | undefined;
+    if (canvas) {
+      annotatedImageUrl = canvas.toDataURL('image/png');
+    }
+    onClose(annotations, description, annotatedImageUrl);
   }, [onClose, annotations, description]);
 
   // 键盘快捷键

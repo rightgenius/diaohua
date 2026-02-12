@@ -203,12 +203,12 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
     }
   }, []);
 
-  // 完成编辑 - AnnotationEditor 返回标注和描述，需要重新生成图片
-  const handleEditorClose = useCallback(() => {
+  // 完成编辑 - AnnotationEditor 返回标注和带标注的图片
+  const handleEditorClose = useCallback((_annotations: any[], _description: string, annotatedImageUrl?: string) => {
     if (!capturedImage || !onScreenshot) return;
     
-    // 将标注绘制到图片上
-    const finalImageUrl = capturedImage; // TODO: 如果有标注，需要将标注绘制到图片上
+    // 使用带标注的图片，如果没有则使用原始截图
+    const finalImageUrl = annotatedImageUrl || capturedImage;
     
     onScreenshot(finalImageUrl, { 
       url: hasBrowser ? url : inputUrl, 

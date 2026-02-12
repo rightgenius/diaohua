@@ -78,16 +78,15 @@ export function RequirementEditor() {
 
       addScreenshot(currentRequirement.id, newScreenshot);
       
-      // 打开标注编辑器
-      setCurrentScreenshot(newScreenshot);
-      setShowAnnotation(true);
+      // 截图已在 BrowserWorkbench 中完成标注，这里不再打开编辑器
+      // 如果需要在 RequirementEditor 中编辑标注，可以点击截图列表中的编辑按钮
     } catch (error) {
       console.error('保存截图失败:', error);
       alert('保存截图失败，请重试');
     }
   };
 
-  const handleAnnotationClose = (annotations: any[], description: string) => {
+  const handleAnnotationClose = (annotations: any[], description: string, _annotatedImageUrl?: string) => {
     if (!currentRequirement || !currentScreenshot) return;
     
     // 更新截图的标注和描述
