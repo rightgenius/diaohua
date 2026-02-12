@@ -5,6 +5,8 @@ import type { AppConfig, OSSConfig } from '@/types';
 
 interface ConfigState extends AppConfig {
   isConfigured: boolean;
+  isAIConfigured: boolean;
+  isOSSConfigured: boolean;
   lastValidatedAt: number | null;
   validationError: string | null;
   localConfigLoaded: boolean;
@@ -43,6 +45,8 @@ export const useConfigStore = create<ConfigState>()(
     (set, get) => ({
       ...defaultConfig,
       isConfigured: false,
+      isAIConfigured: false,
+      isOSSConfigured: false,
       lastValidatedAt: null,
       validationError: null,
       localConfigLoaded: false,
@@ -124,13 +128,17 @@ export const useConfigStore = create<ConfigState>()(
 
       checkConfiguration: () => {
         const { geminiApiKey, oss } = get();
-        const isConfigured = !!(
-          geminiApiKey &&
+        // AI 配置：只需要 Gemini API Key
+        const isAIConfigured = !!(geminiApiKey && geminiApiKey.length > 10);
+        // OSS 配置：需要 bucket、accessKey、secretKey
+        const isOSSConfigured = !!(
           oss.bucket &&
           oss.accessKey &&
           oss.secretKey
         );
-        set({ isConfigured });
+        // 总体配置状态：至少配置了一项算是已配置
+        const isConfigured = isAIConfigured || isOSSConfigured;
+        set({ isConfigured, isAIConfigured, isOSSConfigured });
         return isConfigured;
       },
 
@@ -183,6 +191,8 @@ export const useConfigStore = create<ConfigState>()(
         set({
           ...defaultConfig,
           isConfigured: false,
+          isAIConfigured: false,
+          isOSSConfigured: false,
           lastValidatedAt: null,
           validationError: null,
         });

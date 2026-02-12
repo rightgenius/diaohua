@@ -536,8 +536,9 @@ ipcMain.handle('get-platform', () => {
 ipcMain.handle('load-local-config', async () => {
   try {
     // 按优先级查找配置文件
+    // electron/main.cjs 的 __dirname 是 electron/ 目录，上溯一级到 diaohua/ 目录
     const configPaths = [
-      // 1. 应用根目录（开发时）
+      // 1. 项目根目录（开发时）
       path.join(__dirname, '../diaohua-config.json'),
       // 2. 用户数据目录
       path.join(app.getPath('userData'), 'diaohua-config.json'),
