@@ -15,7 +15,7 @@
 - 🎯 **所见即所得** —— 直接在目标网站上操作、截图、标注，保留完整的交互上下文
 - 🤖 **AI 辅助增强** —— 不仅优化PRD文字表达，还生成可视化的设计参考和效果图
 - 🔄 **设计闭环** —— 标注 → AI优化 → 效果图生成 → 评审 → 迭代，一站式完成
-- ☁️ **全云端存储** —— 所有数据保存在七牛云OSS，换设备无缝同步
+- ☁️ **全云端存储** —— 支持多种 S3 兼容对象存储（七牛云、阿里云、MinIO 等），换设备无缝同步
 - 📤 **Agent友好** —— 导出格式专为AI编程优化，可直接作为AI Coding Agent的输入
 
 ## 🖼️ 界面预览
@@ -70,9 +70,9 @@
 - A/B对比评审，选择满意方案
 
 ### 5. 数据管理
-- 所有数据存储在七牛云OSS
-- 跨设备同步
-- 支持多人协作（后续版本）
+- 支持多种 S3 兼容对象存储服务（七牛云、阿里云 OSS、AWS S3、MinIO 等）
+- 本地优先 + 云端同步
+- 支持本地配置文件，方便开发调试
 
 ### 6. 导出功能
 - **JSON格式**：结构化数据，编程Agent友好
@@ -84,7 +84,6 @@
 ### 环境要求
 
 - Node.js 18+
-- Rust 1.70+（Tauri需要）
 - npm 或 yarn
 
 ### 安装步骤
@@ -95,29 +94,47 @@
    cd diaohua
    ```
 
-2. **安装前端依赖**
+2. **安装依赖**
    ```bash
    npm install
    ```
 
-3. **配置API密钥**
+3. **配置 API 密钥（两种方式）**
+
+   **方式一：本地配置文件（推荐开发使用）**
    
-   首次运行时会自动跳转到设置页面，需要配置：
+   创建 `diaohua-config.json` 文件到项目根目录：
+   ```json
+   {
+     "geminiApiKey": "your-gemini-api-key",
+     "storage": {
+       "provider": "qiniu",
+       "region": "cn-east-1",
+       "bucket": "your-bucket",
+       "accessKey": "your-access-key",
+       "secretKey": "your-secret-key"
+     }
+   }
+   ```
    
+   **方式二：通过界面配置**
+   
+   首次运行时会自动跳转到设置页面，手动填写：
    - **Google Gemini API Key**：[获取地址](https://aistudio.google.com/app/apikey)
-   - **七牛云OSS**：
-     - Access Key / Secret Key：[七牛云控制台](https://portal.qiniu.com/)
-     - Bucket 名称
-     - 域名（可选，默认使用七牛测试域名）
+   - **对象存储配置**：支持七牛云、阿里云 OSS、AWS S3、MinIO 等
 
 4. **运行开发环境**
    ```bash
-   npm run tauri:dev
+   # 终端 1：启动 Vite 开发服务器
+   npm run dev
+   
+   # 终端 2：启动 Electron
+   npm run electron:dev
    ```
 
 5. **构建生产版本**
    ```bash
-   npm run tauri:build
+   npm run electron:build
    ```
 
 ## 📋 使用流程
@@ -151,18 +168,18 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    桌面应用 (Tauri)                          │
+│                   桌面应用 (Electron)                        │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
 │  │   浏览器    │  │  标注编辑器  │  │   需求管理界面      │ │
-│  │  (WebView)  │  │  (Fabric.js)│  │    (React)          │ │
+│  │ (Chromium)  │  │  (Fabric.js)│  │    (React)          │ │
 │  └─────────────┘  └─────────────┘  └─────────────────────┘ │
 └─────────────────────────────┬───────────────────────────────┘
                               │
                     ┌─────────┴─────────┐
                     ▼                   ▼
             ┌──────────────┐    ┌──────────────┐
-            │  七牛云OSS    │    │ Google Gemini│
-            │  (数据存储)   │    │ (AI生成)     │
+            │  对象存储     │    │ Google Gemini│
+            │ (S3 兼容)    │    │ (AI生成)     │
             └──────────────┘    └──────────────┘
 ```
 
@@ -170,18 +187,22 @@
 
 | 层级 | 技术 |
 |------|------|
-| 桌面框架 | Tauri 2.0 |
+| 桌面框架 | Electron 34.x |
 | 前端框架 | React 18 + TypeScript |
-| 状态管理 | Zustand |
+| 构建工具 | Vite 5.x |
+| 状态管理 | Zustand + persist |
 | UI组件 | Tailwind CSS + shadcn/ui |
-| 截图/标注 | xcap + Canvas API |
+| 截图/标注 | desktopCapturer + Fabric.js |
 | AI服务 | Google Gemini API |
-| 存储 | 七牛云OSS |
+| 存储 | S3 兼容对象存储 |
 
 ## 📁 项目结构
 
 ```
 diaohua/
+├── electron/                # Electron 主进程
+│   ├── main.cjs             # 主进程入口
+│   └── preload.cjs          # 预加载脚本
 ├── src/
 │   ├── components/          # React组件
 │   │   ├── browser/         # 浏览器工作台
@@ -193,37 +214,83 @@ diaohua/
 │   ├── services/            # API服务封装
 │   ├── utils/               # 工具函数
 │   └── types/               # TypeScript类型
-├── src-tauri/               # Tauri Rust后端
+├── public/                  # 静态资源（应用图标）
 ├── package.json
 └── README.md
 ```
 
 ## ⚙️ 配置说明
 
+### 本地配置文件
+
+为了方便开发和调试，你可以创建本地配置文件 `diaohua-config.json`：
+
+```json
+{
+  "geminiApiKey": "your-gemini-api-key",
+  "storage": {
+    "provider": "qiniu",
+    "endpoint": "https://s3.cn-east-1.qiniucs.com",
+    "region": "cn-east-1",
+    "bucket": "your-bucket",
+    "accessKey": "your-access-key",
+    "secretKey": "your-secret-key",
+    "domain": "https://your-cdn-domain.com"
+  }
+}
+```
+
+**支持的存储服务商：**
+- `qiniu` - 七牛云 Kodo
+- `aliyun` - 阿里云 OSS
+- `aws` - AWS S3
+- `minio` - MinIO
+- `s3` - 通用 S3 兼容服务
+
+配置文件位置（按查找优先级）：
+1. `diaohua/diaohua-config.json`（开发时使用）
+2. `~/Library/Application Support/diaohua/diaohua-config.json`（macOS 用户目录）
+3. 应用资源目录（生产环境）
+
+> ⚠️ **注意**：配置文件包含敏感信息，已添加到 `.gitignore`，请勿提交到 Git。
+
 ### Google Gemini API
 
 1. 访问 [Google AI Studio](https://aistudio.google.com/app/apikey)
-2. 创建新的API Key
-3. 在雕花设置页面中填入
+2. 创建新的 API Key
+3. 在配置文件或雕花设置页面中填入
 
-> **注意**：Gemini API有免费额度限制，请查看官方文档了解详情。
+> **注意**：Gemini API 有免费额度限制，请查看官方文档了解详情。
 
-### 七牛云OSS
+### 对象存储
 
+支持任何 S3 兼容的对象存储服务：
+
+**七牛云**
 1. 注册 [七牛云](https://www.qiniu.com/) 账号
-2. 创建对象存储Bucket
-3. 在密钥管理中获取Access Key和Secret Key
-4. 在雕花设置页面中填入
+2. 创建对象存储 Bucket
+3. 在密钥管理中获取 Access Key 和 Secret Key
+
+**阿里云 OSS**
+1. 注册 [阿里云](https://www.aliyun.com/) 账号
+2. 创建 OSS Bucket
+3. 在 RAM 访问控制中获取 AccessKey
+
+**MinIO（私有部署）**
+1. 部署 MinIO 服务
+2. 创建 Bucket
+3. 配置 Endpoint 为 MinIO 地址（如 `http://localhost:9000`）
 
 ## 🛣️ 路线图
 
 ### v0.1.0 (MVP)
-- [x] 浏览器工作台（iframe 方案）
-- [x] 截图标注功能（xcap + Canvas 编辑器）
-- [x] AI PRD生成
-- [x] AI效果图生成（相同Prompt生成2张）
-- [x] 七牛云OSS存储
-- [x] JSON/Markdown/PDF导出
+- [x] 浏览器工作台（Electron WebView）
+- [x] 截图标注功能（desktopCapturer + Fabric.js）
+- [x] AI PRD 生成
+- [x] AI 效果图生成（相同 Prompt 生成 2 张）
+- [x] 支持多种 S3 兼容对象存储
+- [x] 本地配置文件支持
+- [x] JSON/Markdown/PDF 导出
 - [x] 截图编辑器（矩形、圆形、箭头、文字、马赛克、裁剪）
 
 ### v0.2.0
@@ -254,10 +321,10 @@ diaohua/
 
 ## 🙏 致谢
 
-- [Tauri](https://tauri.app/) - 跨平台桌面应用框架
-- [Google Gemini](https://deepmind.google/technologies/gemini/) - AI大模型
-- [七牛云](https://www.qiniu.com/) - 对象存储服务
-- [shadcn/ui](https://ui.shadcn.com/) - UI组件库
+- [Electron](https://www.electronjs.org/) - 跨平台桌面应用框架
+- [Google Gemini](https://deepmind.google/technologies/gemini/) - AI 大模型
+- [shadcn/ui](https://ui.shadcn.com/) - UI 组件库
+- [Fabric.js](http://fabricjs.com/) - Canvas 图形库
 
 ---
 
