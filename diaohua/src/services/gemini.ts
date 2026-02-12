@@ -55,7 +55,7 @@ export class GeminiService {
     const prompt = this.buildPRDPrompt(requirement);
     console.log('[GeminiService.generatePRD] Prompt 长度:', prompt.length);
     
-    const url = `${this.baseUrl}/models/gemini-1.5-flash-latest:generateContent?key=${this.apiKey}`;
+    const url = `${this.baseUrl}/models/gemini-2.5-pro:generateContent?key=${this.apiKey}`;
     console.log('[GeminiService.generatePRD] 请求 URL:', url.substring(0, 60) + '...');
     
     const response = await fetch(url, {
@@ -94,21 +94,21 @@ export class GeminiService {
     prompt: string;
     aspectRatio?: string;
   }): Promise<MockupGenerationResult> {
-    const { prompt, aspectRatio = '16:9' } = params;
+    const { prompt } = params;
 
-    // 调用 Imagen API 生成图片
+    // 调用 Gemini 3 Pro 图像预览模型生成图片
     const response = await fetch(
-      `${this.baseUrl}/models/imagen-3.0-generate-001:predict?key=${this.apiKey}`,
+      `${this.baseUrl}/models/gemini-3-pro-image-preview:generateContent?key=${this.apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          instances: [{
-            prompt,
-            aspectRatio: this.convertAspectRatio(aspectRatio),
+          contents: [{
+            role: 'user',
+            parts: [{ text: prompt }]
           }],
-          parameters: {
-            sampleCount: 2, // 生成 2 张图
+          generationConfig: {
+            responseModalities: ['Text', 'Image']
           }
         }),
       }
@@ -116,18 +116,29 @@ export class GeminiService {
 
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(`Imagen API 错误: ${response.status} - ${error}`);
+      throw new Error(`图像生成 API 错误: ${response.status} - ${error}`);
     }
     
     const data = await response.json();
-    const predictions = data.predictions || [];
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    
+    // 提取图像数据
+    const images: Array<{ base64: string; mimeType: string; variant: 'A' | 'B' }> = [];
+    let variant: 'A' | 'B' = 'A';
+    
+    for (const part of parts) {
+      if (part.inlineData) {
+        images.push({
+          base64: part.inlineData.data,
+          mimeType: part.inlineData.mimeType || 'image/png',
+          variant: variant,
+        });
+        variant = variant === 'A' ? 'B' : 'A';
+      }
+    }
     
     return {
-      images: predictions.map((pred: any, idx: number) => ({
-        base64: pred.bytesBase64Encoded,
-        mimeType: pred.mimeType || 'image/png',
-        variant: idx === 0 ? 'A' : 'B' as 'A' | 'B',
-      })),
+      images,
       prompt,
     };
   }
@@ -253,8 +264,9 @@ ${requirement.userDescription || '未提供'}
   }
 
   /**
-   * 转换宽高比格式
+   * 转换宽高比格式（保留以便未来使用）
    */
+  // @ts-ignore
   private convertAspectRatio(ratio: string): string {
     const map: Record<string, string> = {
       '1:1': '1:1',
