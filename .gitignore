@@ -38,7 +38,7 @@ coverage/
 .env.*.local
 
 # Tauri
-src-tauri/target/
+**/target/
 src-tauri/Cargo.lock
 
 # Temporary files
