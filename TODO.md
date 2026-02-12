@@ -1,6 +1,6 @@
 # 雕花项目开发计划
 
-## 当前状态（2026-02-12 16:15）
+## 当前状态（2026-02-12 20:00）
 
 ### ✅ 已完成
 - [x] 需求管理（创建、列表、删除、搜索）
@@ -31,6 +31,19 @@
   - [x] 裁剪工具（框选裁剪区域）
   - [x] 裁剪预览
   - [x] 裁剪后保存
+- [x] **PDF 导出支持中文**（2026-02-12）
+  - [x] 使用 html2canvas + jsPDF 实现
+  - [x] 逐页裁剪生成多页 PDF
+- [x] **AI 配置修复与优化**（2026-02-12）
+  - [x] 修复配置文件路径问题
+  - [x] 分离 AI 配置和 OSS 配置检查
+  - [x] 修复 JSON 注释处理错误
+  - [x] 更新 Gemini API 模型（gemini-2.5-pro / gemini-3-pro-image-preview）
+- [x] **需求编辑器标签页重构**（2026-02-12）
+  - [x] 截图标签页（默认，浏览器工作台）
+  - [x] Prompt 生成标签页（AI PRD、设计建议）
+  - [x] 效果图标签页（A/B 方案对比）
+  - [x] AI 生成后自动跳转
 
 ### 🔄 待开发（按优先级）
 
@@ -40,15 +53,17 @@
   - [ ] 效果图历史版本切换
   - [ ] PRD 版本对比
 
-#### Phase 2: 数据导出
-- [ ] 2.1 导出功能增强
-  - [ ] JSON 导出（含完整数据）
-  - [ ] Markdown PRD 导出
+#### Phase 2: 数据导出与同步
+- [x] 2.1 导出功能增强 ✅ (2026-02-12)
+  - [x] JSON 导出（含完整数据）
+  - [x] Markdown PRD 导出
+  - [x] PDF 导出（支持中文）
   - [ ] 图片包下载
   
-- [ ] 2.2 云端存储（可选）
-  - [ ] 七牛云 OSS 上传
-  - [ ] 配置验证
+- [x] 2.2 云端存储（基础版）
+  - [x] 七牛云 OSS 上传
+  - [x] 配置验证
+  - [ ] 自动同步机制
 
 #### Phase 3: 体验优化
 - [ ] 3.1 键盘快捷键
@@ -56,178 +71,20 @@
 - [ ] 3.3 错误处理和提示
 - [ ] 3.4 空状态界面
 
-#### Phase 4: 截图功能重构（技术方案调研）✅ 已完成
+---
 
-> 背景：当前使用 xcap 库进行全屏截图存在权限问题（需要屏幕录制权限），且截图后需要裁剪。现调研通过 WebView 注入脚本实现无权限截图的方案。
+## 技术方案调研
 
-**方案对比：**
+### Electron 截图方案（已采用）
 
-| 方案 | 原理 | 优点 | 缺点 | 可行性 |
-|------|------|------|------|--------|
-| **xcap 现状** | 调用系统 API 截取屏幕像素 | 截全屏、窗口都可 | 需要屏幕录制权限、可能有黑屏问题 | ⚠️ 有权限门槛 |
-| **WebView 注入脚本** | 前端使用 modern-screenshot 截取 iframe DOM | 无需系统权限、只截网页内容 | 受 CSP 限制、跨域无法使用 | ✅ 已实现 |
-| **WebView 原生截图** | 使用 WKWebView.takeSnapshot / WebView2.CapturePreview | 无需权限、原生支持 | Tauri 未暴露 API，需写插件 | 🔍 需开发插件 |
-
-**已实现的功能：**
-
-- [x] 安装 modern-screenshot 库
-- [x] 创建 WebviewScreenshotService 服务
-  - [x] CSP 限制检测
-  - [x] 截图超时处理
-  - [x] 降级方案提示
-- [x] 浏览器工作台集成
-  - [x] 截图方法选择器（智能选择 / WebView / 系统截图）
-  - [x] 智能推荐提示
-  - [x] 错误处理和用户引导
-- [x] 跨域检测和降级方案
-
-**技术实现：**
-
-```typescript
-// 新的截图服务 API
-WebviewScreenshotService.captureIFrame(iframe, options)
-WebviewScreenshotService.checkCSPLimitations(iframe)
-WebviewScreenshotService.getRecommendedMethod(iframe)
-```
-
-**使用说明：**
-
-1. **智能选择模式**（默认）：自动检测当前页面是否支持 WebView 截图，不支持时提示使用系统截图
-2. **WebView 截图**：直接截取 iframe 内容，无需系统权限，但受 CSP 和跨域限制
-3. **系统截图**：使用 xcap 全屏截图，需要屏幕录制权限
-
-**CSP 限制处理：**
-- GitHub、Google 等网站通常禁止 iframe 脚本执行
-- 对于受限网站，推荐使用系统截图 (Cmd+Shift+4) 后粘贴 (Cmd+V)
-- 浏览器工作台会显示当前推荐的截图方案
-
-**参考链接：**
-- modern-screenshot: https://github.com/qq15725/modern-screenshot
-- CSP 限制说明: https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
+使用 Electron `capturePage()` 方案彻底解决跨域截图问题：
+- **主进程直接控制**：`BrowserWindow` 是独立的 Chromium 实例
+- **原生截图 API**：`webContents.capturePage()` 直接返回像素数据
+- **无视同源策略**：主进程层面不存在跨域概念
 
 ---
 
-## 技术方案调研：Electron 截图方案（2026-02-12）
-
-> 背景：Tauri 的 WebView 注入截图方案因 `eval` 无法获取返回值而受阻，调研 Electron 作为替代方案。
-
-### 核心结论
-
-**Electron `capturePage()` 方案可以彻底解决跨域截图问题**，因为：
-
-1. **主进程直接控制**：`BrowserWindow` 是独立的 Chromium 实例，不是 iframe
-2. **原生截图 API**：`webContents.capturePage()` 直接返回像素数据，无需 JavaScript 注入
-3. **无视同源策略**：主进程层面不存在跨域概念
-
-### 方案对比
-
-| 维度 | Tauri 当前方案 | Electron 方案 |
-|------|---------------|---------------|
-| **截图 API** | `xcap` 系统截图 / `modern-screenshot` iframe | `capturePage()` 原生支持 |
-| **跨域限制** | iframe 受 CSP/跨域限制 | ✅ 无限制 |
-| **权限要求** | 系统截图需屏幕录制权限 | ✅ 无需系统权限 |
-| **截图范围** | 全屏（需裁剪）/ iframe 视口 | 完整网页（含滚动区域）|
-| **包大小** | ✅ ~3MB | ~150MB |
-| **内存占用** | ✅ 低 | 高 |
-| **启动速度** | ✅ 快 | 慢 |
-
-### Electron 实现架构
-
-```
-主进程 (Main Process)
-    │
-    ├── 创建 BrowserWindow（截图专用，隐藏）
-    │      ├── loadURL('http://10.20.3.2:9780')
-    │      ├── 等待 did-finish-load 事件
-    │      └── 可选：注入脚本等待特定元素
-    │
-    ├── webContents.capturePage({ x, y, width, height })
-    │      └── 返回 NativeImage
-    │
-    ├── image.toPNG() / image.toDataURL()
-    │
-    └── IPC 传回渲染进程
-```
-
-### 代码示例
-
-```javascript
-// 主进程 main.js
-async function captureWebpage(url) {
-  const win = new BrowserWindow({
-    width: 1920,
-    height: 1080,
-    show: false,
-    webPreferences: { offscreen: true }
-  });
-  
-  await win.loadURL(url);
-  await new Promise(r => setTimeout(r, 3000)); // 等待渲染
-  
-  // 直接截图，无跨域限制
-  const image = await win.webContents.capturePage();
-  const base64 = image.toDataURL();
-  
-  win.close();
-  return base64;
-}
-```
-
-### 优缺点分析
-
-**优点：**
-- ✅ 彻底解决跨域截图问题
-- ✅ 无需屏幕录制权限
-- ✅ 可截取完整页面（不只是视口）
-- ✅ 稳定可靠，大量应用验证
-
-**缺点：**
-- ❌ 安装包体积大（+150MB vs +3MB）
-- ❌ 内存占用高
-- ❌ 启动速度慢
-- ❌ 需要重构项目（Tauri → Electron）
-
-### 决策建议
-
-**短期（保持 Tauri）：**
-- 使用「系统截图 + 粘贴」作为跨域场景的 workaround
-- 优化权限引导体验
-
-**长期（考虑迁移）：**
-- 如果截图是核心功能且用户量大
-- 如果能接受 150MB 的安装包体积
-- Electron 是更成熟的方案
-
-### 参考链接
-- Electron capturePage: https://www.electronjs.org/docs/latest/api/web-contents#contentscapturepagerect
-- Electron offscreen: https://www.electronjs.org/docs/latest/tutorial/offscreen-rendering
-
----
-
-## 当前任务：更换 Electron App LOGO ✅ 已完成
-
-- [x] 生成黑底白字「雕」字 Logo（与界面一致）
-- [x] 创建多尺寸 PNG 图标（16x16 到 1024x1024）
-- [x] 生成 macOS .icns 图标集
-- [x] 生成 Windows .ico 图标
-- [x] 配置 package.json 各平台图标路径
-- [x] 更新 index.html favicon
-- [x] 更新 AGENTS.md 文档
-
----
-
-## 当前任务：完善 API Key 配置功能 ✅ 已完成（2026-02-12）
-
-- [x] 创建本地配置文件 `diaohua-config.json` 及示例
-- [x] 主进程添加读取本地配置文件的 IPC（loadLocalConfig/saveLocalConfig）
-- [x] ConfigStore 初始化时自动加载本地配置
-- [x] 将「七牛云」品牌改为通用「对象存储」
-- [x] 支持多种 S3 兼容服务（七牛云、阿里云、AWS S3、MinIO）
-- [x] 重命名 API：qiniuUpload → storageUpload，qiniuTestConnection → storageTestConnection
-- [x] 更新设置页面文案和帮助链接
-- [x] 更新 .gitignore 忽略本地配置文件
-
-### 本地配置文件使用说明
+## 本地配置文件使用说明
 
 创建 `diaohua-config.json` 文件到项目根目录或用户数据目录：
 
