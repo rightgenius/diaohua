@@ -12,6 +12,8 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
+import { invoke } from '@tauri-apps/api/core';
+import { ScreenshotEditor } from '@/components/screenshot/ScreenshotEditor';
 
 interface BrowserWorkbenchProps {
   onScreenshot?: (imageUrl: string, pageInfo: { url: string; title: string }) => void;
@@ -24,6 +26,8 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
   const [hasBrowser, setHasBrowser] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showEditor, setShowEditor] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
   
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -83,23 +87,44 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
     setError('页面加载失败，可能是网站禁止了 iframe 嵌入');
   }, []);
 
-  // 截图功能 - 使用系统截图
+  // 截图功能 - 调用后端截图并打开编辑器
   const captureScreenshot = useCallback(async () => {
     setIsCapturing(true);
     
     try {
-      // 提示用户使用系统截图
-      alert('请使用系统截图工具 (Cmd+Shift+4) 截图后，按 Cmd+V 粘贴到应用中');
+      // 调用后端截图命令
+      const imageUrl = await invoke('capture_screen') as string;
+      setCapturedImage(imageUrl);
+      setShowEditor(true);
+    } catch (err) {
+      console.error('截图失败:', err);
+      alert('截图失败: ' + String(err));
     } finally {
       setIsCapturing(false);
     }
   }, []);
 
+  // 完成编辑
+  const handleEditorComplete = useCallback((editedImageUrl: string) => {
+    if (onScreenshot) {
+      onScreenshot(editedImageUrl, { 
+        url: hasBrowser ? url : inputUrl, 
+        title: '浏览器截图' 
+      });
+    }
+    setShowEditor(false);
+    setCapturedImage(null);
+  }, [hasBrowser, url, inputUrl, onScreenshot]);
+
+  // 取消编辑
+  const handleEditorCancel = useCallback(() => {
+    setShowEditor(false);
+    setCapturedImage(null);
+  }, []);
+
   // 处理粘贴事件 - 接收系统截图
   useEffect(() => {
     const handlePaste = async (e: ClipboardEvent) => {
-      if (!hasBrowser) return;
-      
       const items = e.clipboardData?.items;
       if (!items) return;
       
@@ -112,7 +137,7 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
               const imageUrl = event.target?.result as string;
               if (imageUrl && onScreenshot) {
                 onScreenshot(imageUrl, { 
-                  url: url, 
+                  url: hasBrowser ? url : inputUrl, 
                   title: '浏览器截图' 
                 });
               }
@@ -126,7 +151,7 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
     
     document.addEventListener('paste', handlePaste);
     return () => document.removeEventListener('paste', handlePaste);
-  }, [hasBrowser, url, onScreenshot]);
+  }, [hasBrowser, url, inputUrl, onScreenshot]);
 
   // 在外部浏览器打开
   const openExternal = useCallback(() => {
@@ -212,7 +237,7 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
           </Button>
           <Button
             onClick={captureScreenshot}
-            disabled={isCapturing || !hasBrowser}
+            disabled={isCapturing}
             size="sm"
             className="gap-1"
           >
@@ -278,6 +303,15 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
           Mac: Cmd+Shift+4 截图 | Cmd+V 粘贴
         </span>
       </div>
+
+      {/* 截图编辑器 */}
+      {showEditor && capturedImage && (
+        <ScreenshotEditor
+          imageUrl={capturedImage}
+          onComplete={handleEditorComplete}
+          onCancel={handleEditorCancel}
+        />
+      )}
     </div>
   );
 }

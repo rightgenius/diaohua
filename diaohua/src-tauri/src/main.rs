@@ -15,6 +15,8 @@ fn main() {
             save_file,
             read_file,
             frontend_log,
+            // 截图命令
+            capture_screen,
             // 七牛云 OSS 命令
             qiniu_upload_token,
             qiniu_upload_base64,
@@ -44,6 +46,44 @@ async fn frontend_log(level: String, message: String) {
         "warn" => println!("[前端-警告] {}", message),
         _ => println!("[前端] {}", message),
     }
+}
+
+// ===== 屏幕截图 =====
+
+#[tauri::command]
+async fn capture_screen() -> Result<String, String> {
+    println!("[后端] 开始截取全屏");
+    
+    // 使用 xcap crate 跨平台截图
+    let monitors = xcap::Monitor::all()
+        .map_err(|e| format!("获取显示器信息失败: {:?}", e))?;
+    
+    if monitors.is_empty() {
+        return Err("未找到可用显示器".to_string());
+    }
+    
+    // 截取主显示器（通常是第一个）
+    let monitor = &monitors[0];
+    let width = monitor.width().map_err(|e| format!("获取宽度失败: {:?}", e))?;
+    let height = monitor.height().map_err(|e| format!("获取高度失败: {:?}", e))?;
+    println!("[后端] 截取显示器: {} x {}", width, height);
+    
+    let image = monitor.capture_image()
+        .map_err(|e| format!("截图失败: {:?}", e))?;
+    
+    // 转换为 PNG
+    let mut png_data: Vec<u8> = Vec::new();
+    {
+        let mut cursor = std::io::Cursor::new(&mut png_data);
+        image.write_to(&mut cursor, image::ImageFormat::Png)
+            .map_err(|e| format!("PNG 编码失败: {}", e))?;
+    }
+    
+    // 转换为 base64
+    let base64_image = base64_encode(&png_data);
+    
+    println!("[后端] 截图完成，数据大小: {} bytes", base64_image.len());
+    Ok(format!("data:image/png;base64,{}", base64_image))
 }
 
 // ===== 七牛云 OSS 后端命令 =====

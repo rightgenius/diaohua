@@ -17,6 +17,8 @@ base64 = "0.22"
 hmac = "0.12"
 sha1 = "0.10"
 uuid = { version = "1.7", features = ["v4"] }
+xcap = "0.8"
+image = "0.25"
 
 [features]
 default = ["custom-protocol"]
