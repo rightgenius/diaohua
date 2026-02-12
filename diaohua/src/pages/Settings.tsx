@@ -141,15 +141,16 @@ export function Settings() {
                   <p className="font-medium mb-1">云端存储</p>
                   <p className="text-muted-foreground text-xs">
                     {isOSSConfigValid()
-                      ? '已启用七牛云 OSS，数据将自动同步到云端'
-                      : '配置七牛云后，数据将自动备份到云端'}
+                      ? '已启用对象存储服务，数据将自动同步到云端'
+                      : '配置对象存储后，数据将自动备份到云端'}
                   </p>
                 </div>
               </div>
               <div className="text-xs text-muted-foreground">
-                <p>• 未配置 OSS 时，所有数据仅保存在本地</p>
-                <p>• 配置 OSS 后，截图将自动上传到云端</p>
+                <p>• 未配置对象存储时，所有数据仅保存在本地</p>
+                <p>• 配置对象存储后，截图将自动上传到云端</p>
                 <p>• 上传失败时会自动回退到本地存储</p>
+                <p>• 支持七牛云、阿里云、AWS S3、MinIO 等 S3 兼容服务</p>
               </div>
             </div>
           </CardContent>

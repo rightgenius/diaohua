@@ -154,12 +154,19 @@ export interface AppConfig {
 }
 
 export interface OSSConfig {
-  provider: 'qiniu' | 'aliyun' | 'aws';
+  provider: 's3' | 'qiniu' | 'aliyun' | 'aws' | 'minio' | 'other';
+  endpoint?: string;
   region: string;
   bucket: string;
   accessKey: string;
   secretKey: string;
   domain?: string;
+}
+
+// 本地配置文件类型
+export interface LocalConfigFile {
+  geminiApiKey?: string;
+  storage?: OSSConfig;
 }
 
 // Generation types

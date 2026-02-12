@@ -205,6 +205,47 @@ npm run electron:build
 3. **OSS 凭证**: 不上传到公开仓库，用户本地配置
 4. **CSP 策略**: 开发时 `webSecurity: false`，生产环境需注意
 
+## 本地配置文件
+
+应用支持通过本地配置文件预设 API Key 和对象存储配置，方便开发调试。
+
+### 配置文件位置（按优先级）
+
+1. 应用根目录：`diaohua/diaohua-config.json`（开发时使用）
+2. 用户数据目录：`~/Library/Application Support/diaohua/diaohua-config.json`（macOS）
+3. 应用资源目录：`Resources/diaohua-config.json`（生产环境）
+
+### 配置文件格式
+
+```json
+{
+  "geminiApiKey": "your-gemini-api-key",
+  "storage": {
+    "provider": "qiniu",
+    "endpoint": "https://s3.cn-east-1.qiniucs.com",
+    "region": "cn-east-1",
+    "bucket": "your-bucket",
+    "accessKey": "your-access-key",
+    "secretKey": "your-secret-key",
+    "domain": "https://your-cdn-domain.com"
+  }
+}
+```
+
+### 支持的存储服务
+
+- **七牛云 Kodo** - `provider: "qiniu"`
+- **阿里云 OSS** - `provider: "aliyun"`
+- **AWS S3** - `provider: "aws"`
+- **MinIO** - `provider: "minio"`
+- **通用 S3 兼容** - `provider: "s3"`
+
+### 注意事项
+
+- 配置文件包含敏感信息，**请勿提交到 Git**
+- 已添加到 `.gitignore`：`diaohua-config.json`
+- 示例文件：`diaohua-config.example.json`
+
 ## 应用图标
 
 应用图标设计为黑底圆角方块 + 白色「雕」字，与界面 Logo 保持一致。

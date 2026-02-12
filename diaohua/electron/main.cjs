@@ -532,6 +532,80 @@ ipcMain.handle('get-platform', () => {
   return process.platform;
 });
 
+// 读取本地配置文件
+ipcMain.handle('load-local-config', async () => {
+  try {
+    // 按优先级查找配置文件
+    const configPaths = [
+      // 1. 应用根目录（开发时）
+      path.join(__dirname, '../diaohua-config.json'),
+      // 2. 用户数据目录
+      path.join(app.getPath('userData'), 'diaohua-config.json'),
+      // 3. 应用目录（生产环境）
+      path.join(process.resourcesPath || '', 'diaohua-config.json'),
+    ];
+    
+    for (const configPath of configPaths) {
+      if (fs.existsSync(configPath)) {
+        safeLog('[Electron] 找到本地配置文件:', configPath);
+        const content = fs.readFileSync(configPath, 'utf-8');
+        // 移除注释（简单处理 JSON 中的注释）
+        const jsonContent = content.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+        const config = JSON.parse(jsonContent);
+        
+        // 规范化配置结构
+        const result = {
+          geminiApiKey: config.geminiApiKey || '',
+          oss: config.storage ? {
+            provider: config.storage.provider || 'qiniu',
+            endpoint: config.storage.endpoint || '',
+            region: config.storage.region || 'z0',
+            bucket: config.storage.bucket || '',
+            accessKey: config.storage.accessKey || '',
+            secretKey: config.storage.secretKey || '',
+            domain: config.storage.domain || '',
+          } : null,
+        };
+        
+        safeLog('[Electron] 本地配置加载成功');
+        return { success: true, config: result, path: configPath };
+      }
+    }
+    
+    // 没有找到配置文件
+    return { success: true, config: null, path: null };
+  } catch (error) {
+    safeError('[Electron] 读取本地配置文件失败:', error.message);
+    return { success: false, error: error.message, config: null, path: null };
+  }
+});
+
+// 保存本地配置文件（仅保存到用户数据目录）
+ipcMain.handle('save-local-config', async (event, config) => {
+  try {
+    const configPath = path.join(app.getPath('userData'), 'diaohua-config.json');
+    const configData = {
+      geminiApiKey: config.geminiApiKey || '',
+      storage: config.oss ? {
+        provider: config.oss.provider || 'qiniu',
+        endpoint: config.oss.endpoint || '',
+        region: config.oss.region || '',
+        bucket: config.oss.bucket || '',
+        accessKey: config.oss.accessKey || '',
+        secretKey: config.oss.secretKey || '',
+        domain: config.oss.domain || '',
+      } : undefined,
+    };
+    
+    fs.writeFileSync(configPath, JSON.stringify(configData, null, 2), 'utf-8');
+    safeLog('[Electron] 本地配置已保存:', configPath);
+    return { success: true, path: configPath };
+  } catch (error) {
+    safeError('[Electron] 保存本地配置文件失败:', error.message);
+    return { success: false, error: error.message };
+  }
+});
+
 safeLog('[Electron] 主进程已加载');
 
 // 防止 EPIPE 等错误导致应用崩溃

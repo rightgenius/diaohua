@@ -101,7 +101,7 @@ export class OSSService {
       }
 
       // 使用 Electron API 上传
-      const result = await window.electronAPI.qiniuUpload(
+      const result = await window.electronAPI.storageUpload(
         this.getQiniuConfig(),
         base64Data,
         key,
@@ -194,7 +194,7 @@ export class OSSService {
     }
 
     try {
-      const result = await window.electronAPI.qiniuTestConnection(this.getQiniuConfig());
+      const result = await window.electronAPI.storageTestConnection(this.getQiniuConfig());
       return result;
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);

@@ -18,10 +18,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
   readFileBase64: (filePath) => ipcRenderer.invoke('read-file-base64', filePath),
 
-  // 七牛云 OSS
-  qiniuUploadToken: (config, key) => ipcRenderer.invoke('qiniu-upload-token', config, key),
-  qiniuUpload: (config, base64Data, key, mimeType) => ipcRenderer.invoke('qiniu-upload', config, base64Data, key, mimeType),
-  qiniuTestConnection: (config) => ipcRenderer.invoke('qiniu-test-connection', config),
+  // 对象存储服务（S3 兼容）
+  storageUploadToken: (config, key) => ipcRenderer.invoke('qiniu-upload-token', config, key),
+  storageUpload: (config, base64Data, key, mimeType) => ipcRenderer.invoke('qiniu-upload', config, base64Data, key, mimeType),
+  storageTestConnection: (config) => ipcRenderer.invoke('qiniu-test-connection', config),
+  
+  // 本地配置文件
+  loadLocalConfig: () => ipcRenderer.invoke('load-local-config'),
+  saveLocalConfig: (config) => ipcRenderer.invoke('save-local-config', config),
 
   // 应用信息
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
@@ -50,13 +54,13 @@ contextBridge.exposeInMainWorld('__TAURI__', {
         return Promise.resolve();
       },
 
-      // 七牛云
+      // 对象存储（S3 兼容）
       'qiniu_upload_base64': ({ config, base64Data, key, mimeType }) => 
-        window.electronAPI.qiniuUpload(config, base64Data, key, mimeType),
+        window.electronAPI.storageUpload(config, base64Data, key, mimeType),
       'qiniu_upload_token': ({ config, key }) => 
-        window.electronAPI.qiniuUploadToken(config, key),
+        window.electronAPI.storageUploadToken(config, key),
       'qiniu_test_connection': ({ config }) => 
-        window.electronAPI.qiniuTestConnection(config),
+        window.electronAPI.storageTestConnection(config),
       'get_qiniu_config': () => {
         console.warn('[兼容性] get_qiniu_config 未实现');
         return Promise.resolve({ accessKey: '', secretKey: '', bucket: '' });

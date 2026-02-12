@@ -213,3 +213,42 @@ async function captureWebpage(url) {
 - [x] 配置 package.json 各平台图标路径
 - [x] 更新 index.html favicon
 - [x] 更新 AGENTS.md 文档
+
+---
+
+## 当前任务：完善 API Key 配置功能 ✅ 已完成（2026-02-12）
+
+- [x] 创建本地配置文件 `diaohua-config.json` 及示例
+- [x] 主进程添加读取本地配置文件的 IPC（loadLocalConfig/saveLocalConfig）
+- [x] ConfigStore 初始化时自动加载本地配置
+- [x] 将「七牛云」品牌改为通用「对象存储」
+- [x] 支持多种 S3 兼容服务（七牛云、阿里云、AWS S3、MinIO）
+- [x] 重命名 API：qiniuUpload → storageUpload，qiniuTestConnection → storageTestConnection
+- [x] 更新设置页面文案和帮助链接
+- [x] 更新 .gitignore 忽略本地配置文件
+
+### 本地配置文件使用说明
+
+创建 `diaohua-config.json` 文件到项目根目录或用户数据目录：
+
+```json
+{
+  "geminiApiKey": "your-gemini-api-key",
+  "storage": {
+    "provider": "qiniu",
+    "endpoint": "https://s3.cn-east-1.qiniucs.com",
+    "region": "cn-east-1",
+    "bucket": "your-bucket",
+    "accessKey": "your-access-key",
+    "secretKey": "your-secret-key",
+    "domain": "https://your-cdn-domain.com"
+  }
+}
+```
+
+应用启动时会自动读取该配置文件并填充到设置中。
+
+### 配置优先级
+1. 本地配置文件（`diaohua-config.json`）- 最高优先级
+2. 浏览器 localStorage（用户通过界面设置）- 次优先级
+3. 默认空值 - 最低优先级

@@ -68,3 +68,6 @@ src-tauri/Cargo.lock
 # Local environment config (contains secrets)
 .env.local
 config.local.json
+
+# 雕花本地配置文件（包含 API Key）
+diaohua-config.json

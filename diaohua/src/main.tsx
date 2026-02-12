@@ -3,22 +3,36 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./styles/globals.css";
+import { useConfigStore } from "./stores/configStore";
 
 console.log("[前端] main.tsx 加载中...");
 
-const rootElement = document.getElementById("root");
-console.log("[前端] root 元素:", rootElement);
+// 加载本地配置文件（在渲染前执行）
+const initApp = async () => {
+  try {
+    console.log("[前端] 正在加载本地配置...");
+    await useConfigStore.getState().loadLocalConfig();
+    console.log("[前端] 本地配置加载完成");
+  } catch (error) {
+    console.error("[前端] 加载本地配置失败:", error);
+  }
 
-if (rootElement) {
-  console.log("[前端] 开始渲染 React 应用...");
-  ReactDOM.createRoot(rootElement).render(
-    <React.StrictMode>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </React.StrictMode>
-  );
-  console.log("[前端] React 渲染完成");
-} else {
-  console.error("[前端] 错误: 找不到 root 元素!");
-}
+  const rootElement = document.getElementById("root");
+  console.log("[前端] root 元素:", rootElement);
+
+  if (rootElement) {
+    console.log("[前端] 开始渲染 React 应用...");
+    ReactDOM.createRoot(rootElement).render(
+      <React.StrictMode>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </React.StrictMode>
+    );
+    console.log("[前端] React 渲染完成");
+  } else {
+    console.error("[前端] 错误: 找不到 root 元素!");
+  }
+};
+
+initApp();

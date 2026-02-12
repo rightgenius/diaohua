@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/Badge';
 import { useConfigStore } from '@/stores/configStore';
 import { ossService } from '@/services/oss';
+import type { OSSConfig } from '@/types';
 import { 
   Check, 
   AlertCircle, 
@@ -29,14 +30,25 @@ export function OSSConfigForm({ onConfigChange }: OSSConfigFormProps) {
     validationError,
     lastValidatedAt,
     clearValidationError,
+    localConfigPath,
   } = useConfigStore();
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    provider: OSSConfig['provider'];
+    endpoint: string;
+    accessKey: string;
+    secretKey: string;
+    bucket: string;
+    domain: string;
+    region: string;
+  }>({
+    provider: oss.provider || 's3',
+    endpoint: oss.endpoint || '',
     accessKey: oss.accessKey || '',
     secretKey: oss.secretKey || '',
     bucket: oss.bucket || '',
     domain: oss.domain || '',
-    region: oss.region || 'z0',
+    region: oss.region || 'cn-east-1',
   });
 
   const [isTesting, setIsTesting] = useState(false);
@@ -65,14 +77,16 @@ export function OSSConfigForm({ onConfigChange }: OSSConfigFormProps) {
   }, [isOSSConfigValid, onConfigChange]);
 
   const handleSave = () => {
-    setOSSConfig({
-      provider: 'qiniu',
+    const config: OSSConfig = {
+      provider: formData.provider as OSSConfig['provider'],
+      endpoint: formData.endpoint,
       region: formData.region,
       bucket: formData.bucket,
       accessKey: formData.accessKey,
       secretKey: formData.secretKey,
       domain: formData.domain,
-    });
+    };
+    setOSSConfig(config);
     setHasChanges(false);
     setTestResult(null);
   };
@@ -82,14 +96,16 @@ export function OSSConfigForm({ onConfigChange }: OSSConfigFormProps) {
     setTestResult(null);
 
     // 先保存配置
-    setOSSConfig({
-      provider: 'qiniu',
+    const testConfig: OSSConfig = {
+      provider: formData.provider as OSSConfig['provider'],
+      endpoint: formData.endpoint,
       region: formData.region,
       bucket: formData.bucket,
       accessKey: formData.accessKey,
       secretKey: formData.secretKey,
       domain: formData.domain,
-    });
+    };
+    setOSSConfig(testConfig);
 
     // 临时更新 OSS 服务配置
     ossService.refreshConfig?.();
@@ -114,9 +130,9 @@ export function OSSConfigForm({ onConfigChange }: OSSConfigFormProps) {
               <Database className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <CardTitle>七牛云 OSS 配置</CardTitle>
+              <CardTitle>对象存储配置</CardTitle>
               <CardDescription>
-                配置云端存储，实现数据跨设备同步
+                配置 S3 兼容的对象存储服务（七牛云、阿里云、MinIO 等）
               </CardDescription>
             </div>
           </div>
@@ -129,27 +145,75 @@ export function OSSConfigForm({ onConfigChange }: OSSConfigFormProps) {
       </CardHeader>
 
       <CardContent className="space-y-6">
-        {/* 区域选择 */}
+        {/* 服务提供商 */}
         <div className="space-y-2">
           <label className="text-sm font-medium flex items-center gap-2">
-            <Globe size={16} /> 存储区域
+            <Database size={16} /> 存储服务提供商
           </label>
           <select
             className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
-            value={formData.region}
-            onChange={(e) => setFormData({ ...formData, region: e.target.value })}
+            value={formData.provider}
+            onChange={(e) => setFormData({ ...formData, provider: e.target.value as OSSConfig['provider'] })}
           >
-            <option value="z0">华东（z0）</option>
-            <option value="z1">华北（z1）</option>
-            <option value="z2">华南（z2）</option>
-            <option value="na0">北美（na0）</option>
-            <option value="as0">东南亚（as0）</option>
+            <option value="s3">通用 S3 兼容</option>
+            <option value="qiniu">七牛云 Kodo</option>
+            <option value="aliyun">阿里云 OSS</option>
+            <option value="aws">AWS S3</option>
+            <option value="minio">MinIO</option>
+            <option value="other">其他</option>
           </select>
+        </div>
+
+        {/* Endpoint / 区域 */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium flex items-center gap-2">
+            <Globe size={16} /> 
+            {formData.provider === 's3' || formData.provider === 'minio' ? 'Endpoint URL' : '存储区域'}
+          </label>
+          {formData.provider === 'qiniu' ? (
+            <select
+              className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+              value={formData.region}
+              onChange={(e) => setFormData({ ...formData, region: e.target.value })}
+            >
+              <option value="cn-east-1">华东-浙江（cn-east-1）</option>
+              <option value="cn-north-1">华北-河北（cn-north-1）</option>
+              <option value="cn-south-1">华南-广东（cn-south-1）</option>
+              <option value="us-north-1">北美-洛杉矶（us-north-1）</option>
+              <option value="ap-southeast-1">亚太-新加坡（ap-southeast-1）</option>
+            </select>
+          ) : formData.provider === 'aliyun' ? (
+            <select
+              className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+              value={formData.region}
+              onChange={(e) => setFormData({ ...formData, region: e.target.value })}
+            >
+              <option value="oss-cn-hangzhou">华东1（杭州）</option>
+              <option value="oss-cn-shanghai">华东2（上海）</option>
+              <option value="oss-cn-beijing">华北1（北京）</option>
+              <option value="oss-cn-shenzhen">华南1（深圳）</option>
+            </select>
+          ) : (
+            <Input
+              placeholder={formData.provider === 'minio' ? 'http://localhost:9000' : 'https://s3.amazonaws.com'}
+              value={formData.endpoint}
+              onChange={(e) => setFormData({ ...formData, endpoint: e.target.value })}
+            />
+          )}
+          <p className="text-xs text-muted-foreground">
+            {formData.provider === 'qiniu' 
+              ? '选择七牛云存储区域'
+              : formData.provider === 'aliyun'
+              ? '选择阿里云 OSS 区域'
+              : '输入 S3 兼容服务的 Endpoint URL'}
+          </p>
         </div>
 
         {/* Access Key */}
         <div className="space-y-2">
-          <label className="text-sm font-medium">Access Key</label>
+          <label className="text-sm font-medium">
+            Access Key / Access Key ID
+          </label>
           <Input
             type="password"
             placeholder="请输入 Access Key"
@@ -161,7 +225,7 @@ export function OSSConfigForm({ onConfigChange }: OSSConfigFormProps) {
         {/* Secret Key */}
         <div className="space-y-2">
           <label className="text-sm font-medium flex items-center gap-2">
-            <Shield size={16} /> Secret Key
+            <Shield size={16} /> Secret Key / Access Key Secret
           </label>
           <Input
             type="password"
@@ -170,7 +234,7 @@ export function OSSConfigForm({ onConfigChange }: OSSConfigFormProps) {
             onChange={(e) => setFormData({ ...formData, secretKey: e.target.value })}
           />
           <p className="text-xs text-muted-foreground">
-            Secret Key 将被加密存储在本地
+            Secret Key 将被加密存储在本地，不会上传到云端
           </p>
         </div>
 
@@ -193,7 +257,7 @@ export function OSSConfigForm({ onConfigChange }: OSSConfigFormProps) {
             onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
           />
           <p className="text-xs text-muted-foreground">
-            不填写则使用七牛云默认域名
+            配置自定义 CDN 域名，不填写则使用服务商默认域名
           </p>
         </div>
 
@@ -266,20 +330,34 @@ export function OSSConfigForm({ onConfigChange }: OSSConfigFormProps) {
           </div>
         )}
 
-        {/* 帮助链接 */}
-        <div className="pt-4 border-t">
+        {/* 帮助链接和本地配置提示 */}
+        <div className="pt-4 border-t space-y-2">
           <p className="text-xs text-muted-foreground">
-            还没有七牛云账号？
+            常用服务商控制台：
             <a
               href="https://portal.qiniu.com/"
               target="_blank"
               rel="noopener noreferrer"
               className="text-primary hover:underline inline-flex items-center gap-1 ml-1"
             >
-              前往七牛云控制台
+              七牛云
+              <ExternalLink size={12} />
+            </a>
+            <a
+              href="https://oss.console.aliyun.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline inline-flex items-center gap-1 ml-2"
+            >
+              阿里云 OSS
               <ExternalLink size={12} />
             </a>
           </p>
+          {localConfigPath && (
+            <p className="text-xs text-green-600">
+              配置已自动从本地文件加载
+            </p>
+          )}
         </div>
       </CardContent>
     </Card>

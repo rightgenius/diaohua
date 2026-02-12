@@ -40,13 +40,13 @@ interface ElectronAPI {
   readFile: (filePath: string) => Promise<Uint8Array>;
   readFileBase64: (filePath: string) => Promise<string>;
 
-  // 七牛云 OSS
-  qiniuUploadToken: (config: {
+  // 对象存储服务（S3 兼容）
+  storageUploadToken: (config: {
     accessKey: string;
     secretKey: string;
     bucket: string;
   }, key: string) => Promise<string>;
-  qiniuUpload: (config: {
+  storageUpload: (config: {
     accessKey: string;
     secretKey: string;
     bucket: string;
@@ -58,13 +58,40 @@ interface ElectronAPI {
     hash: string;
     size: number;
   }>;
-  qiniuTestConnection: (config: {
+  storageTestConnection: (config: {
     accessKey: string;
     secretKey: string;
     bucket: string;
     domain?: string;
     region?: string;
   }) => Promise<{ success: boolean; message: string }>;
+
+  // 本地配置文件
+  loadLocalConfig: () => Promise<{
+    success: boolean;
+    config?: {
+      geminiApiKey?: string;
+      oss?: {
+        provider?: string;
+        endpoint?: string;
+        region?: string;
+        bucket?: string;
+        accessKey?: string;
+        secretKey?: string;
+        domain?: string;
+      };
+    };
+    path?: string;
+    error?: string;
+  }>;
+  saveLocalConfig: (config: {
+    geminiApiKey?: string;
+    oss?: object;
+  }) => Promise<{
+    success: boolean;
+    path?: string;
+    error?: string;
+  }>;
 
   // 应用信息
   getAppVersion: () => Promise<string>;
