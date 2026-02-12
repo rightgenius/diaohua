@@ -18,6 +18,7 @@ import { ScreenshotService } from '@/services/screenshot';
 import type { Screenshot } from '@/types';
 
 export function RequirementEditor() {
+  console.log('[前端] RequirementEditor 组件渲染');
   const { 
     currentRequirement,
     requirements,

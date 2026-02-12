@@ -8,6 +8,7 @@ import { OSSConfigForm } from '@/components/settings/OSSConfigForm';
 import { Check, Info, ExternalLink, Key, Database, Sparkles } from 'lucide-react';
 
 export function Settings() {
+  console.log('[前端] Settings 组件渲染');
   const { geminiApiKey, setGeminiApiKey, isConfigured, isOSSConfigValid } = useConfigStore();
   const [showSuccess, setShowSuccess] = useState(false);
   const [geminiKey, setGeminiKey] = useState(geminiApiKey || '');

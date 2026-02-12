@@ -224,8 +224,9 @@ export class SyncService {
         if (typeof item.data === 'string') {
           await ossService.uploadFile(item.data, item.key);
         } else {
-          const buffer = Buffer.from(JSON.stringify(item.data), 'utf-8');
-          await ossService.uploadFile(buffer, item.key, { mimeType: 'application/json' });
+          const jsonStr = JSON.stringify(item.data);
+          const blob = new Blob([jsonStr], { type: 'application/json' });
+          await ossService.uploadFile(blob, item.key, { mimeType: 'application/json' });
         }
       } catch (error) {
         console.error(`SyncService: Failed to upload ${item.id}:`, error);

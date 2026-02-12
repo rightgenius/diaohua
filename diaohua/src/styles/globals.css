@@ -54,3 +54,13 @@
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.5);
 }
+
+/* 确保所有交互元素可点击 */
+* {
+  pointer-events: auto !important;
+}
+
+/* 调试：给所有可点击元素添加轮廓 */
+a, button, [role="button"] {
+  cursor: pointer !important;
+}

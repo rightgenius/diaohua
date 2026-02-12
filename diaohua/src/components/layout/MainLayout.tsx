@@ -80,7 +80,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         
         {/* Page content */}
         <div className="flex-1 overflow-hidden">
-          {children}
+          {(() => { console.log('[前端] MainLayout 渲染 children:', children); return children; })()}
         </div>
       </main>
     </div>
@@ -98,11 +98,18 @@ function NavButton({
   tooltip: string;
   isActive: boolean;
 }) {
+  console.log(`[前端] NavButton 渲染: ${tooltip} -> ${to}, active=${isActive}`);
+  
+  const handleClick = (_e: React.MouseEvent) => {
+    console.log(`[前端] NavButton 点击: ${tooltip}`);
+  };
+  
   return (
     <Link
       to={to}
+      onClick={handleClick}
       className={cn(
-        'w-10 h-10 rounded-lg flex items-center justify-center transition-colors relative group',
+        'w-10 h-10 rounded-lg flex items-center justify-center transition-colors relative group cursor-pointer',
         isActive
           ? 'bg-primary text-primary-foreground'
           : 'text-muted-foreground hover:bg-muted hover:text-foreground'

@@ -1,5 +1,5 @@
-import { QiniuService } from './qiniu';
 import { useConfigStore } from '@/stores/configStore';
+import { invoke } from '@tauri-apps/api/core';
 import type { OSSConfig } from '@/types';
 
 export interface UploadResult {
@@ -13,31 +13,22 @@ export interface OSSUploadOptions {
   onProgress?: (percent: number) => void;
 }
 
+interface QiniuConfig {
+  accessKey: string;
+  secretKey: string;
+  bucket: string;
+  domain?: string;
+}
+
 /**
- * OSS 服务类 - 封装七牛云上传逻辑，支持本地降级
+ * OSS 服务类 - 封装七牛云上传逻辑，通过 Tauri 后端执行
  */
 export class OSSService {
-  private qiniuService: QiniuService | null = null;
   private config: OSSConfig;
 
   constructor() {
     const state = useConfigStore.getState();
     this.config = state.oss;
-    this.initService();
-  }
-
-  /**
-   * 初始化服务
-   */
-  private initService(): void {
-    if (this.isConfigValid()) {
-      try {
-        this.qiniuService = new QiniuService(this.config);
-      } catch (error) {
-        console.warn('OSSService: Failed to initialize Qiniu service:', error);
-        this.qiniuService = null;
-      }
-    }
   }
 
   /**
@@ -57,28 +48,30 @@ export class OSSService {
   refreshConfig(): void {
     const state = useConfigStore.getState();
     this.config = state.oss;
-    this.initService();
   }
 
   /**
-   * 上传文件（支持 Buffer、Blob、File、Base64）
+   * 获取七牛配置对象
+   */
+  private getQiniuConfig(): QiniuConfig {
+    return {
+      accessKey: this.config.accessKey,
+      secretKey: this.config.secretKey,
+      bucket: this.config.bucket,
+      domain: this.config.domain,
+    };
+  }
+
+  /**
+   * 上传文件（支持 Base64）
    */
   async uploadFile(
-    file: File | Blob | Buffer | string,
+    file: File | Blob | string,
     key: string,
     options?: OSSUploadOptions
   ): Promise<UploadResult> {
-    // 检查配置
     if (!this.isConfigValid()) {
       console.warn('OSSService: OSS not configured, using local fallback');
-      return this.localFallback(file, key);
-    }
-
-    if (!this.qiniuService) {
-      this.initService();
-    }
-
-    if (!this.qiniuService) {
       return this.localFallback(file, key);
     }
 
@@ -86,33 +79,34 @@ export class OSSService {
       // 模拟进度回调
       if (options?.onProgress) {
         let progress = 0;
-        const progressInterval = setInterval(() => {
+        const interval = setInterval(() => {
           progress += 10;
           if (progress >= 90) {
-            clearInterval(progressInterval);
+            clearInterval(interval);
           } else {
-            options.onProgress!(progress);
+            options.onProgress?.(progress);
           }
         }, 100);
       }
 
-      let result: { url: string; key: string };
+      let base64Data: string;
 
-      // 处理不同类型的输入
       if (typeof file === 'string') {
-        // Base64 图片
-        result = await this.qiniuService.uploadBase64(file, key);
-      } else if (file instanceof Blob || file instanceof File) {
-        // Blob/File 转换为 Buffer
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        result = await this.qiniuService.uploadBuffer(buffer, key, options?.mimeType || file.type);
+        base64Data = file;
+      } else if ((file as Blob) instanceof Blob) {
+        base64Data = await this.blobToBase64(file as Blob);
       } else {
-        // 假设是 Buffer
-        result = await this.qiniuService.uploadBuffer(file as Buffer, key, options?.mimeType);
+        throw new Error('Unsupported file type');
       }
 
-      // 完成进度
+      // 调用 Tauri 后端上传
+      const result = await invoke('qiniu_upload_base64', {
+        config: this.getQiniuConfig(),
+        base64Data,
+        key,
+        mimeType: options?.mimeType || 'image/png',
+      }) as { key: string; url: string };
+
       if (options?.onProgress) {
         options.onProgress(100);
       }
@@ -175,26 +169,19 @@ export class OSSService {
   ): Promise<UploadResult> {
     const key = `requirements/${requirementId}.json`;
     const jsonString = JSON.stringify(data, null, 2);
-    const buffer = Buffer.from(jsonString, 'utf-8');
-    return this.uploadFile(buffer, key, { mimeType: 'application/json' });
+    const base64 = btoa(unescape(encodeURIComponent(jsonString)));
+    return this.uploadFile(`data:application/json;base64,${base64}`, key, {
+      mimeType: 'application/json',
+    });
   }
 
   /**
    * 删除文件
    */
-  async deleteFile(key: string): Promise<boolean> {
-    if (!this.qiniuService) {
-      console.warn('OSSService: Cannot delete, service not initialized');
-      return false;
-    }
-
-    try {
-      await this.qiniuService.deleteFile(key);
-      return true;
-    } catch (error) {
-      console.error('OSSService: Delete failed:', error);
-      return false;
-    }
+  async deleteFile(_key: string): Promise<boolean> {
+    // TODO: 实现删除功能
+    console.warn('OSSService: Delete not implemented yet');
+    return false;
   }
 
   /**
@@ -205,36 +192,30 @@ export class OSSService {
       return { success: false, message: '配置不完整：bucket、accessKey、secretKey 为必填项' };
     }
 
-    if (!this.qiniuService) {
-      try {
-        this.qiniuService = new QiniuService(this.config);
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        return { success: false, message: `初始化失败：${msg}` };
-      }
+    try {
+      const result = await invoke('qiniu_test_connection', {
+        config: this.getQiniuConfig(),
+      }) as { success: boolean; message: string };
+      return result;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      return { success: false, message: `连接失败：${msg}` };
     }
-
-    return this.qiniuService.testConnection();
   }
 
   /**
-   * 生成本地降级 URL（data URL 或 localStorage key）
+   * 生成本地降级 URL
    */
   private localFallback(
-    file: File | Blob | Buffer | string,
+    file: File | Blob | string,
     key: string
   ): Promise<UploadResult> {
     return new Promise((resolve) => {
       let url: string;
 
       if (typeof file === 'string') {
-        // 已经是 Base64
         url = file;
-      } else if (Buffer.isBuffer(file)) {
-        // Buffer 转 Base64
-        url = `data:application/octet-stream;base64,${file.toString('base64')}`;
       } else {
-        // Blob/File 转 URL
         url = URL.createObjectURL(file);
       }
 
@@ -247,10 +228,24 @@ export class OSSService {
   }
 
   /**
+   * Blob 转 Base64
+   */
+  private blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  /**
    * 生成唯一 key
    */
   generateKey(prefix: string, ext: string): string {
-    return QiniuService.generateKey(prefix, ext);
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 10);
+    return `${prefix}/${timestamp}_${random}.${ext}`;
   }
 
   /**

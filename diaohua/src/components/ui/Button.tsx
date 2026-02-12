@@ -4,14 +4,17 @@ import { cn } from '@/utils/cn';
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
   size?: 'default' | 'sm' | 'lg' | 'icon';
+  asChild?: boolean;
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = 'default', size = 'default', ...props }, ref) => {
+  ({ className, variant = 'default', size = 'default', asChild, children, ...props }, ref) => {
+    const Comp = asChild ? 'span' : 'button';
     return (
-      <button
+      <Comp
         className={cn(
           'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
+          asChild && 'cursor-pointer',
           {
             'bg-primary text-primary-foreground hover:bg-primary/90': variant === 'default',
             'bg-destructive text-destructive-foreground hover:bg-destructive/90': variant === 'destructive',
@@ -28,9 +31,11 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           },
           className
         )}
-        ref={ref}
+        ref={asChild ? undefined : ref as React.Ref<HTMLButtonElement>}
         {...props}
-      />
+      >
+        {children}
+      </Comp>
     );
   }
 );

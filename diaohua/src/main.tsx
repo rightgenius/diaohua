@@ -4,10 +4,21 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./styles/globals.css";
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
-  </React.StrictMode>
-);
+console.log("[前端] main.tsx 加载中...");
+
+const rootElement = document.getElementById("root");
+console.log("[前端] root 元素:", rootElement);
+
+if (rootElement) {
+  console.log("[前端] 开始渲染 React 应用...");
+  ReactDOM.createRoot(rootElement).render(
+    <React.StrictMode>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </React.StrictMode>
+  );
+  console.log("[前端] React 渲染完成");
+} else {
+  console.error("[前端] 错误: 找不到 root 元素!");
+}

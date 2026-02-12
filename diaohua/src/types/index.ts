@@ -106,7 +106,12 @@ export interface MockupDesign {
 // PRD Version History
 export interface PRDVersion {
   id: string;
-  content: AIGeneratedContent;
+  content?: AIGeneratedContent;
+  // 展开的属性（兼容旧代码）
+  prdMarkdown?: string;
+  generatedAt?: string;
+  generatedPrompt?: string;
+  designSuggestions?: DesignSuggestion;
   createdAt: string;
   createdBy: string;
   changeSummary?: string;

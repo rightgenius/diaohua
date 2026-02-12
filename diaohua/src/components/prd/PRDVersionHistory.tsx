@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Clock, RotateCcw, ChevronDown, ChevronUp, FileText, User } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import type { Requirement, PRDVersion } from '@/types';
+import type { Requirement, PRDVersion, ComponentSuggestion } from '@/types';
 import { cn } from '@/utils/cn';
 
 interface PRDVersionHistoryProps {
@@ -32,11 +32,13 @@ export function PRDVersionHistory({
   if (requirement.aiGeneratedContent) {
     allVersions.unshift({
       id: 'current',
+      content: requirement.aiGeneratedContent,
       prdMarkdown: requirement.aiGeneratedContent.prdMarkdown,
       generatedAt: requirement.aiGeneratedContent.generatedAt,
       generatedPrompt: requirement.aiGeneratedContent.generatedPrompt,
       designSuggestions: requirement.aiGeneratedContent.designSuggestions,
       createdBy: 'AI',
+      createdAt: requirement.aiGeneratedContent.generatedAt,
       changeSummary: '当前版本',
       isCurrent: true,
     });
@@ -116,7 +118,7 @@ export function PRDVersionHistory({
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Clock size={12} />
-                    {formatDate(version.generatedAt)}
+                    {formatDate(version.generatedAt || version.createdAt)}
                   </span>
                   <span className="flex items-center gap-1">
                     <User size={12} />
@@ -171,7 +173,7 @@ export function PRDVersionHistory({
                   </p>
                 </div>
 
-                {version.designSuggestions?.styleGuide?.colors?.length > 0 && (
+                {version.designSuggestions?.styleGuide?.colors && version.designSuggestions.styleGuide.colors.length > 0 && (
                   <div>
                     <h4 className="text-sm font-medium mb-2">配色方案</h4>
                     <div className="flex flex-wrap gap-2">
@@ -191,11 +193,11 @@ export function PRDVersionHistory({
                   </div>
                 )}
 
-                {version.designSuggestions?.components?.length > 0 && (
+                {version.designSuggestions?.components && version.designSuggestions.components.length > 0 && (
                   <div>
                     <h4 className="text-sm font-medium mb-2">组件建议</h4>
                     <ul className="text-sm text-muted-foreground space-y-1">
-                      {version.designSuggestions.components.map((comp, i) => (
+                      {version.designSuggestions.components.map((comp: ComponentSuggestion, i: number) => (
                         <li key={i}>
                           <span className="font-medium">{comp.name}</span>
                           <span className="text-xs"> ({comp.type})</span>

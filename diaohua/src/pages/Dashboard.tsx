@@ -21,10 +21,13 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '@/utils/cn';
 
 export function Dashboard() {
+  console.log("[前端] Dashboard 组件渲染");
   const { requirements, deleteRequirement, setCurrentRequirement } = useRequirementStore();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  console.log("[前端] Dashboard 需求数量:", requirements.length);
 
   const filteredRequirements = requirements.filter((req) =>
     req.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -96,7 +99,10 @@ export function Dashboard() {
             <Button 
               size="lg" 
               className="gap-2"
-              onClick={() => navigate('/requirement')}
+              onClick={() => {
+                console.log('[前端] 点击创建第一个需求按钮');
+                navigate('/requirement');
+              }}
             >
               <Plus size={20} />
               创建第一个需求

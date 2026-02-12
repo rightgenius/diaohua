@@ -284,13 +284,21 @@ export function useGeminiService(): GeminiService | null {
  * 创建 PRD 版本记录
  */
 export function createPRDVersion(result: PRDGenerationResult): PRDVersion {
+  const now = new Date().toISOString();
   return {
     id: `prd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    content: {
+      prdMarkdown: result.prdMarkdown,
+      designSuggestions: result.designSuggestions,
+      generatedPrompt: result.generatedPrompt,
+      generatedAt: now,
+    },
     prdMarkdown: result.prdMarkdown,
-    generatedAt: new Date().toISOString(),
+    generatedAt: now,
     generatedPrompt: result.generatedPrompt,
     designSuggestions: result.designSuggestions,
     createdBy: 'AI',
+    createdAt: now,
     changeSummary: 'AI 生成的 PRD',
   };
 }
