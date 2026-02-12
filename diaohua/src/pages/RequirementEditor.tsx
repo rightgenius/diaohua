@@ -11,6 +11,9 @@ import {
   Wand2, 
   Plus,
   Loader2,
+  Image,
+  FileText,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { BrowserWorkbench } from '@/components/browser/BrowserWorkbench';
@@ -124,6 +127,9 @@ export function RequirementEditor() {
   };
 
   const geminiService = useGeminiService();
+  
+  // 标签页状态: screenshots | prompt | mockup
+  const [activeTab, setActiveTab] = useState<'screenshots' | 'prompt' | 'mockup'>('screenshots');
 
   const handleAIGenerate = async () => {
     if (!currentRequirement || currentRequirement.screenshots.length === 0) {
@@ -154,10 +160,53 @@ export function RequirementEditor() {
         status: 'ai_generating',
       });
       
-      alert('PRD 生成成功！请查看 AI 结果面板');
+      // 自动切换到 Prompt 生成标签页
+      setActiveTab('prompt');
     } catch (error) {
       console.error('AI 生成失败:', error);
       alert(error instanceof Error ? error.message : 'AI 生成失败，请重试');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+  
+  const handleGenerateMockup = async () => {
+    if (!currentRequirement || !geminiService) return;
+    
+    const prompt = currentRequirement.aiGeneratedContent?.generatedPrompt;
+    if (!prompt) {
+      alert('请先生成 PRD 以获取效果图 Prompt');
+      return;
+    }
+    
+    setIsGenerating(true);
+    
+    try {
+      const result = await geminiService.generateMockups({ prompt });
+      
+      // 保存效果图
+      const mockups = result.images.map((img, idx) => ({
+        id: Date.now().toString() + idx,
+        generationBatch: (currentRequirement.mockupDesigns?.length || 0) + 1,
+        variant: img.variant,
+        imageUrl: `data:${img.mimeType};base64,${img.base64}`,
+        prompt: result.prompt,
+        style: currentRequirement.aiGeneratedContent?.designSuggestions?.layout?.style || '默认风格',
+        params: { aspectRatio: '16:9' },
+        selected: false,
+        createdAt: new Date().toISOString(),
+      }));
+
+      updateRequirement(currentRequirement.id, {
+        mockupDesigns: [...(currentRequirement.mockupDesigns || []), ...mockups],
+        status: 'mockup_review',
+      });
+      
+      // 自动切换到效果图标签页
+      setActiveTab('mockup');
+    } catch (error) {
+      console.error('效果图生成失败:', error);
+      alert(error instanceof Error ? error.message : '效果图生成失败，请重试');
     } finally {
       setIsGenerating(false);
     }
@@ -281,43 +330,202 @@ export function RequirementEditor() {
         )}
       </div>
 
-      {/* Main Content - 浏览器全屏 */}
+      {/* Main Content - 标签页切换 */}
       <div className="flex-1 flex flex-col">
         {/* Toolbar */}
         <div className="h-14 border-b flex items-center justify-between px-4 bg-card">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowNewDialog(true)}
-          >
-            <Plus size={16} className="mr-1" />
-            新建
-          </Button>
+          <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+            <TabButton
+              active={activeTab === 'screenshots'}
+              onClick={() => setActiveTab('screenshots')}
+              icon={<Image size={14} />}
+              label="截图"
+            />
+            <TabButton
+              active={activeTab === 'prompt'}
+              onClick={() => setActiveTab('prompt')}
+              icon={<FileText size={14} />}
+              label="Prompt生成"
+              disabled={!currentRequirement.aiGeneratedContent}
+            />
+            <TabButton
+              active={activeTab === 'mockup'}
+              onClick={() => setActiveTab('mockup')}
+              icon={<Sparkles size={14} />}
+              label="效果图"
+              disabled={!currentRequirement.mockupDesigns?.length}
+            />
+          </div>
 
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowNewDialog(true)}
+            >
+              <Plus size={16} className="mr-1" />
+              新建
+            </Button>
+            
             {currentRequirement.screenshots.length > 0 && (
               <>
                 <ExportButton requirement={currentRequirement} />
-                <Button
-                  onClick={handleAIGenerate}
-                  disabled={isGenerating}
-                  className="gap-2"
-                >
-                  {isGenerating ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <Wand2 size={16} />
-                  )}
-                  {isGenerating ? '生成中...' : 'AI生成'}
-                </Button>
+                {activeTab === 'screenshots' && (
+                  <Button
+                    onClick={handleAIGenerate}
+                    disabled={isGenerating}
+                    className="gap-2"
+                  >
+                    {isGenerating ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Wand2 size={16} />
+                    )}
+                    {isGenerating ? '生成中...' : 'AI生成'}
+                  </Button>
+                )}
+                {activeTab === 'prompt' && currentRequirement.aiGeneratedContent && (
+                  <Button
+                    onClick={handleGenerateMockup}
+                    disabled={isGenerating}
+                    className="gap-2"
+                  >
+                    {isGenerating ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Sparkles size={16} />
+                    )}
+                    生成效果图
+                  </Button>
+                )}
               </>
             )}
           </div>
         </div>
 
-        {/* Browser - 全屏显示 */}
-        <div className="flex-1 overflow-hidden" data-browser-frame>
-          <BrowserWorkbench onScreenshot={handleScreenshot} />
+        {/* 标签页内容 */}
+        <div className="flex-1 overflow-hidden">
+          {activeTab === 'screenshots' && (
+            <div className="h-full" data-browser-frame>
+              <BrowserWorkbench onScreenshot={handleScreenshot} />
+            </div>
+          )}
+          
+          {activeTab === 'prompt' && (
+            <div className="h-full overflow-auto p-6">
+              {currentRequirement.aiGeneratedContent ? (
+                <div className="max-w-3xl mx-auto space-y-6">
+                  {/* PRD 内容 */}
+                  <div className="bg-card rounded-lg border p-6">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <FileText size={18} />
+                      AI 生成的 PRD
+                    </h3>
+                    <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed bg-muted p-4 rounded-lg">
+                      {currentRequirement.aiGeneratedContent.prdMarkdown || '暂无内容'}
+                    </pre>
+                  </div>
+                  
+                  {/* 设计建议 */}
+                  {currentRequirement.aiGeneratedContent.designSuggestions && (
+                    <div className="bg-card rounded-lg border p-6">
+                      <h3 className="text-lg font-semibold mb-4">设计建议</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <h4 className="font-medium text-sm text-muted-foreground mb-1">布局风格</h4>
+                          <p>{currentRequirement.aiGeneratedContent.designSuggestions.layout?.style || '未指定'}</p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {currentRequirement.aiGeneratedContent.designSuggestions.layout?.description}
+                          </p>
+                        </div>
+                        
+                        {currentRequirement.aiGeneratedContent.designSuggestions.styleGuide?.colors && (
+                          <div>
+                            <h4 className="font-medium text-sm text-muted-foreground mb-2">配色方案</h4>
+                            <div className="flex gap-2 flex-wrap">
+                              {currentRequirement.aiGeneratedContent.designSuggestions.styleGuide.colors.map((color, i) => (
+                                <div
+                                  key={i}
+                                  className="w-12 h-12 rounded-lg border shadow-sm"
+                                  style={{ backgroundColor: color }}
+                                  title={color}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* 效果图 Prompt */}
+                  <div className="bg-card rounded-lg border p-6">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Sparkles size={18} />
+                      效果图生成 Prompt
+                    </h3>
+                    <pre className="whitespace-pre-wrap font-mono text-sm bg-muted p-4 rounded-lg">
+                      {currentRequirement.aiGeneratedContent.generatedPrompt || '暂无 Prompt'}
+                    </pre>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                  <Sparkles size={48} className="mb-4 opacity-50" />
+                  <p>请先在「截图」标签页点击「AI生成」按钮</p>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {activeTab === 'mockup' && (
+            <div className="h-full overflow-auto p-6">
+              {currentRequirement.mockupDesigns && currentRequirement.mockupDesigns.length > 0 ? (
+                <div className="max-w-5xl mx-auto">
+                  <h3 className="text-lg font-semibold mb-6">效果图</h3>
+                  <div className="grid grid-cols-2 gap-6">
+                    {currentRequirement.mockupDesigns.map((mockup) => (
+                      <div
+                        key={mockup.id}
+                        className={cn(
+                          'relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all',
+                          mockup.selected
+                            ? 'border-primary shadow-lg'
+                            : 'border-border hover:border-muted-foreground'
+                        )}
+                        onClick={() => updateRequirement(currentRequirement.id, {
+                          selectedMockupId: mockup.id,
+                          mockupDesigns: currentRequirement.mockupDesigns?.map(m => ({
+                            ...m,
+                            selected: m.id === mockup.id
+                          }))
+                        })}
+                      >
+                        <img
+                          src={mockup.imageUrl}
+                          alt={`效果图 ${mockup.variant}`}
+                          className="w-full h-auto"
+                        />
+                        <div className="absolute top-2 left-2 bg-background/90 px-2 py-1 rounded text-xs font-medium">
+                          方案 {mockup.variant}
+                        </div>
+                        {mockup.selected && (
+                          <div className="absolute top-2 right-2 bg-primary text-primary-foreground px-2 py-1 rounded text-xs font-medium">
+                            已选中
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                  <Image size={48} className="mb-4 opacity-50" />
+                  <p>请先在「Prompt生成」标签页点击「生成效果图」按钮</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -332,6 +540,33 @@ export function RequirementEditor() {
         />
       )}
     </div>
+  );
+}
+
+interface TabButtonProps {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+  disabled?: boolean;
+}
+
+function TabButton({ active, onClick, icon, label, disabled }: TabButtonProps) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        'flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
+        active
+          ? 'bg-background text-foreground shadow-sm'
+          : 'text-muted-foreground hover:text-foreground hover:bg-muted',
+        disabled && 'opacity-50 cursor-not-allowed hover:bg-transparent'
+      )}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }
 
