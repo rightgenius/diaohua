@@ -69,14 +69,16 @@ export function MainLayout({ children }: MainLayoutProps) {
 
       {/* Main content */}
       <main className="flex-1 overflow-hidden flex flex-col">
-        {/* Top bar with notifications */}
-        <div className="h-14 border-b flex items-center justify-end px-4 gap-2">
-          <NotificationCenter
-            notifications={notifications}
-            onMarkAsRead={handleMarkAsRead}
-            onMarkAllAsRead={handleMarkAllAsRead}
-          />
-        </div>
+        {/* Top bar with notifications - 只在非编辑页面显示 */}
+        {location.pathname !== '/requirement' && !location.pathname.startsWith('/requirement/') && (
+          <div className="h-14 border-b flex items-center justify-end px-4 gap-2">
+            <NotificationCenter
+              notifications={notifications}
+              onMarkAsRead={handleMarkAsRead}
+              onMarkAllAsRead={handleMarkAllAsRead}
+            />
+          </div>
+        )}
         
         {/* Page content */}
         <div className="flex-1 overflow-hidden">
