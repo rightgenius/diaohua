@@ -95,25 +95,43 @@ ipcMain.handle('capture-screen', async () => {
     
     console.log(`[Electron] 屏幕尺寸: ${width}x${height} @ (${x}, ${y})`);
 
-    const sources = await desktopCapturer.getSources({
-      types: ['screen'],
-      thumbnailSize: { width, height },
-    });
+    // 获取屏幕源，添加超时处理
+    const sources = await Promise.race([
+      desktopCapturer.getSources({
+        types: ['screen'],
+        thumbnailSize: { width, height },
+      }),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('获取屏幕源超时')), 10000)
+      )
+    ]);
+
+    if (!sources || sources.length === 0) {
+      throw new Error('未找到屏幕源，请检查屏幕录制权限');
+    }
 
     const primarySource = sources.find(source => source.display_id === String(primaryDisplay.id)) || sources[0];
     
     if (!primarySource) {
-      throw new Error('未找到屏幕源');
+      throw new Error('未找到主屏幕源');
     }
 
     // thumbnail 是 NativeImage
     const image = primarySource.thumbnail;
+    if (!image || image.isEmpty()) {
+      throw new Error('截图数据为空，请检查屏幕录制权限');
+    }
+    
     const base64 = image.toDataURL();
     
     console.log(`[Electron] 截图完成，数据大小: ${base64.length} bytes`);
     return base64;
   } catch (error) {
     console.error('[Electron] 截图失败:', error);
+    // 返回更友好的错误信息
+    if (error.message && error.message.includes('screen recording')) {
+      throw new Error('需要屏幕录制权限。请在系统设置 > 隐私与安全性 > 屏幕录制中启用本应用。');
+    }
     throw error;
   }
 });
@@ -129,19 +147,22 @@ ipcMain.handle('capture-webpage', async (event, url, options = {}) => {
     fullPage = false,
   } = options;
 
-  // 创建隐藏的浏览器窗口
-  const captureWindow = new BrowserWindow({
-    width,
-    height,
-    show: false,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      offscreen: true, // 离屏渲染
-    },
-  });
+  let captureWindow = null;
 
   try {
+    // 创建隐藏的浏览器窗口（不使用离屏渲染，更稳定）
+    captureWindow = new BrowserWindow({
+      width,
+      height,
+      show: false,
+      skipTaskbar: true,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        // 不使用 offscreen 渲染，避免不稳定问题
+      },
+    });
+
     // 加载页面
     await captureWindow.loadURL(url);
     
@@ -180,7 +201,10 @@ ipcMain.handle('capture-webpage', async (event, url, options = {}) => {
     console.error('[Electron] 网页截图失败:', error);
     throw error;
   } finally {
-    captureWindow.close();
+    // 确保窗口被销毁
+    if (captureWindow && !captureWindow.isDestroyed()) {
+      captureWindow.destroy();
+    }
   }
 });
 

@@ -113,7 +113,10 @@ npm run electron:build
 ## 待办 📋
 
 ### 高优先级
-- [ ] 修复截图黑屏问题 - 截图后内容显示为全黑
+- [ ] **统一截图操作控件** - 截图后的操作控件和编辑截图的操作控件不一致
+  - 现状：`ScreenshotList` 和 `ScreenshotEditor` 有不同的工具栏
+  - 目标：统一使用 `ScreenshotEditor` 的工具栏样式
+  - 涉及的组件：`ScreenshotList.tsx`, `ScreenshotEditor.tsx`
 
 ### 后续优化（需根据业务需求集成）
 - [ ] 截图保存流程改造 - 截图后自动上传到 OSS（需集成到截图组件中）
