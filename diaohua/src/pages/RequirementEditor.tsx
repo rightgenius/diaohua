@@ -14,6 +14,7 @@ import {
   Image,
   FileText,
   Sparkles,
+  Palette,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { BrowserWorkbench } from '@/components/browser/BrowserWorkbench';
@@ -421,39 +422,129 @@ export function RequirementEditor() {
                       <FileText size={18} />
                       AI 生成的 PRD
                     </h3>
-                    <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed bg-muted p-4 rounded-lg">
-                      {currentRequirement.aiGeneratedContent.prdMarkdown || '暂无内容'}
-                    </pre>
+                    <Textarea
+                      value={currentRequirement.aiGeneratedContent.prdMarkdown || ''}
+                      onChange={(e) => updateRequirement(currentRequirement.id, {
+                        aiGeneratedContent: {
+                          ...currentRequirement.aiGeneratedContent!,
+                          prdMarkdown: e.target.value,
+                        },
+                      })}
+                      className="min-h-[300px] font-mono text-sm resize-y"
+                      placeholder="PRD 内容..."
+                    />
                   </div>
                   
                   {/* 设计建议 */}
                   {currentRequirement.aiGeneratedContent.designSuggestions && (
                     <div className="bg-card rounded-lg border p-6">
-                      <h3 className="text-lg font-semibold mb-4">设计建议</h3>
+                      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                        <Palette size={18} />
+                        设计建议
+                      </h3>
                       <div className="space-y-4">
+                        {/* 布局风格 */}
                         <div>
-                          <h4 className="font-medium text-sm text-muted-foreground mb-1">布局风格</h4>
-                          <p>{currentRequirement.aiGeneratedContent.designSuggestions.layout?.style || '未指定'}</p>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {currentRequirement.aiGeneratedContent.designSuggestions.layout?.description}
-                          </p>
+                          <label className="text-xs text-muted-foreground mb-1 block">布局风格</label>
+                          <Input
+                            value={currentRequirement.aiGeneratedContent.designSuggestions!.layout?.style || ''}
+                            onChange={(e) => {
+                              const content = currentRequirement.aiGeneratedContent!;
+                              const design = content.designSuggestions!;
+                              updateRequirement(currentRequirement.id, {
+                                aiGeneratedContent: {
+                                  ...content,
+                                  designSuggestions: {
+                                    ...design,
+                                    layout: {
+                                      ...design.layout,
+                                      style: e.target.value,
+                                    },
+                                  },
+                                },
+                              });
+                            }}
+                            placeholder="风格名称"
+                            className="mb-2"
+                          />
+                          <Textarea
+                            value={currentRequirement.aiGeneratedContent.designSuggestions!.layout?.description || ''}
+                            onChange={(e) => {
+                              const content = currentRequirement.aiGeneratedContent!;
+                              const design = content.designSuggestions!;
+                              updateRequirement(currentRequirement.id, {
+                                aiGeneratedContent: {
+                                  ...content,
+                                  designSuggestions: {
+                                    ...design,
+                                    layout: {
+                                      ...design.layout,
+                                      description: e.target.value,
+                                    },
+                                  },
+                                },
+                              });
+                            }}
+                            placeholder="布局描述..."
+                            rows={2}
+                          />
                         </div>
                         
-                        {currentRequirement.aiGeneratedContent.designSuggestions.styleGuide?.colors && (
-                          <div>
-                            <h4 className="font-medium text-sm text-muted-foreground mb-2">配色方案</h4>
-                            <div className="flex gap-2 flex-wrap">
-                              {currentRequirement.aiGeneratedContent.designSuggestions.styleGuide.colors.map((color, i) => (
-                                <div
-                                  key={i}
-                                  className="w-12 h-12 rounded-lg border shadow-sm"
-                                  style={{ backgroundColor: color }}
-                                  title={color}
+                        {/* 配色方案 */}
+                        <div>
+                          <label className="text-xs text-muted-foreground mb-2 block">配色方案</label>
+                          <div className="flex gap-2 flex-wrap">
+                            {currentRequirement.aiGeneratedContent.designSuggestions!.styleGuide?.colors?.map((color, i) => (
+                              <div key={i} className="flex items-center gap-1">
+                                <input
+                                  type="color"
+                                  value={color}
+                                  onChange={(e) => {
+                                    const content = currentRequirement.aiGeneratedContent!;
+                                    const design = content.designSuggestions!;
+                                    const colors = [...(design.styleGuide?.colors || [])];
+                                    colors[i] = e.target.value;
+                                    updateRequirement(currentRequirement.id, {
+                                      aiGeneratedContent: {
+                                        ...content,
+                                        designSuggestions: {
+                                          ...design,
+                                          styleGuide: {
+                                            ...design.styleGuide,
+                                            colors,
+                                          },
+                                        },
+                                      },
+                                    });
+                                  }}
+                                  className="w-8 h-8 rounded cursor-pointer border"
                                 />
-                              ))}
-                            </div>
+                                <Input
+                                  value={color}
+                                  onChange={(e) => {
+                                    const content = currentRequirement.aiGeneratedContent!;
+                                    const design = content.designSuggestions!;
+                                    const colors = [...(design.styleGuide?.colors || [])];
+                                    colors[i] = e.target.value;
+                                    updateRequirement(currentRequirement.id, {
+                                      aiGeneratedContent: {
+                                        ...content,
+                                        designSuggestions: {
+                                          ...design,
+                                          styleGuide: {
+                                            ...design.styleGuide,
+                                            colors,
+                                          },
+                                        },
+                                      },
+                                    });
+                                  }}
+                                  className="w-20 h-8 text-xs px-1"
+                                />
+                              </div>
+                            ))}
                           </div>
-                        )}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -464,9 +555,17 @@ export function RequirementEditor() {
                       <Sparkles size={18} />
                       效果图生成 Prompt
                     </h3>
-                    <pre className="whitespace-pre-wrap font-mono text-sm bg-muted p-4 rounded-lg">
-                      {currentRequirement.aiGeneratedContent.generatedPrompt || '暂无 Prompt'}
-                    </pre>
+                    <Textarea
+                      value={currentRequirement.aiGeneratedContent.generatedPrompt || ''}
+                      onChange={(e) => updateRequirement(currentRequirement.id, {
+                        aiGeneratedContent: {
+                          ...currentRequirement.aiGeneratedContent!,
+                          generatedPrompt: e.target.value,
+                        },
+                      })}
+                      className="min-h-[200px] font-mono text-sm resize-y"
+                      placeholder="生图 Prompt..."
+                    />
                   </div>
                 </div>
               ) : (

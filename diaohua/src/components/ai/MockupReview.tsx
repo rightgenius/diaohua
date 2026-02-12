@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRequirementStore } from '@/stores/requirementStore';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Textarea } from '@/components/ui/Textarea';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { 
   Check, 
@@ -9,6 +10,10 @@ import {
   Loader2,
   Info,
   Download,
+  Edit3,
+  Save,
+  X,
+  Wand2,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
@@ -28,6 +33,11 @@ export function MockupReview({ onGenerate, isGenerating }: MockupReviewProps) {
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  
+  // Prompt 编辑状态
+  const [isEditingPrompt, setIsEditingPrompt] = useState(false);
+  const [editedPrompt, setEditedPrompt] = useState('');
+  const [isGeneratingWithNewPrompt, setIsGeneratingWithNewPrompt] = useState(false);
 
   // 获取当前批次的效果图
   const currentBatch = currentRequirement?.mockupDesigns && currentRequirement.mockupDesigns.length > 0
@@ -86,6 +96,49 @@ export function MockupReview({ onGenerate, isGenerating }: MockupReviewProps) {
   const historyBatches = [...new Set(
     currentRequirement?.mockupDesigns?.map(m => m.generationBatch) || []
   )].sort((a, b) => b - a);
+
+  // 初始化 Prompt 编辑状态
+  useEffect(() => {
+    if (currentRequirement?.aiGeneratedContent?.generatedPrompt) {
+      setEditedPrompt(currentRequirement.aiGeneratedContent.generatedPrompt);
+    }
+  }, [currentRequirement?.aiGeneratedContent?.generatedPrompt]);
+
+  // 保存 Prompt 修改
+  const handleSavePrompt = () => {
+    if (!currentRequirement) return;
+    
+    updateRequirement(currentRequirement.id, {
+      aiGeneratedContent: {
+        ...currentRequirement.aiGeneratedContent!,
+        generatedPrompt: editedPrompt,
+        generatedAt: new Date().toISOString(),
+      },
+    });
+    setIsEditingPrompt(false);
+  };
+
+  // 使用编辑后的 Prompt 生成
+  const handleGenerateWithEditedPrompt = async () => {
+    if (!currentRequirement) return;
+    
+    setIsGeneratingWithNewPrompt(true);
+    try {
+      // 临时更新 Prompt
+      updateRequirement(currentRequirement.id, {
+        aiGeneratedContent: {
+          ...currentRequirement.aiGeneratedContent!,
+          generatedPrompt: editedPrompt,
+        },
+      });
+      
+      // 调用父组件的生成方法
+      await onGenerate();
+      setIsEditingPrompt(false);
+    } finally {
+      setIsGeneratingWithNewPrompt(false);
+    }
+  };
 
   if (!hasMockups) {
     return (
@@ -228,13 +281,81 @@ export function MockupReview({ onGenerate, isGenerating }: MockupReviewProps) {
         </Card>
       </div>
 
-      {/* Prompt Display */}
+      {/* Prompt Display & Edit */}
       {currentRequirement?.aiGeneratedContent?.generatedPrompt && (
         <Card className="p-4 mb-6">
-          <h4 className="text-sm font-medium text-muted-foreground mb-2">生成使用的 Prompt</h4>
-          <pre className="text-xs bg-muted p-3 rounded overflow-auto max-h-32">
-            {currentRequirement.aiGeneratedContent.generatedPrompt}
-          </pre>
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-medium text-muted-foreground">生成使用的 Prompt</h4>
+            <div className="flex items-center gap-2">
+              {isEditingPrompt ? (
+                <>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => {
+                      setIsEditingPrompt(false);
+                      setEditedPrompt(currentRequirement.aiGeneratedContent?.generatedPrompt || '');
+                    }}
+                    className="gap-1 h-7"
+                  >
+                    <X size={14} />
+                    取消
+                  </Button>
+                  <Button 
+                    size="sm"
+                    onClick={handleSavePrompt}
+                    className="gap-1 h-7"
+                  >
+                    <Save size={14} />
+                    保存
+                  </Button>
+                </>
+              ) : (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => {
+                    setEditedPrompt(currentRequirement.aiGeneratedContent?.generatedPrompt || '');
+                    setIsEditingPrompt(true);
+                  }}
+                  className="gap-1 h-7"
+                >
+                  <Edit3 size={14} />
+                  编辑
+                </Button>
+              )}
+            </div>
+          </div>
+          
+          {isEditingPrompt ? (
+            <div className="space-y-3">
+              <Textarea
+                value={editedPrompt}
+                onChange={(e) => setEditedPrompt(e.target.value)}
+                className="min-h-[150px] text-sm"
+                placeholder="在此编辑生图 Prompt..."
+              />
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  修改后可以使用新 Prompt 重新生成效果图
+                </p>
+                <Button
+                  size="sm"
+                  onClick={handleGenerateWithEditedPrompt}
+                  disabled={isGeneratingWithNewPrompt || !editedPrompt.trim()}
+                  className="gap-2"
+                >
+                  {isGeneratingWithNewPrompt && <Loader2 size={14} className="animate-spin" />}
+                  <Wand2 size={14} />
+                  用此 Prompt 重新生成
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <pre className="text-xs bg-muted p-3 rounded overflow-auto max-h-32 whitespace-pre-wrap">
+              {currentRequirement.aiGeneratedContent.generatedPrompt}
+            </pre>
+          )}
         </Card>
       )}
 

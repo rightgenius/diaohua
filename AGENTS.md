@@ -8,8 +8,8 @@
 
 - **浏览器工作台**：内置浏览器访问网站，支持地址栏导航
 - **截图标注**：支持系统截图、网页截图，提供 Fabric.js 标注编辑器
-- **AI PRD 生成**：基于 Google Gemini API 生成优化后的需求文档
-- **AI 效果图生成**：调用 Gemini Imagen 生成 A/B 双方案效果图
+- **AI PRD 生成**：基于 Google Gemini API 生成优化后的需求文档，支持手动编辑
+- **AI 效果图生成**：调用 Gemini Imagen 生成 A/B 双方案效果图，Prompt 可编辑
 - **数据管理**：本地 Zustand 存储 + 七牛云 OSS 云端同步
 - **导出功能**：支持 JSON、Markdown、PDF 格式导出
 
