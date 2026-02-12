@@ -10,7 +10,6 @@ import {
   Redo, 
   Check,
   X,
-  MousePointer2
 } from 'lucide-react';
 
 interface ScreenshotEditorProps {
@@ -19,11 +18,11 @@ interface ScreenshotEditorProps {
   onCancel: () => void;
 }
 
-type ToolType = 'select' | 'rect' | 'circle' | 'arrow' | 'text' | 'mosaic';
+type ToolType = 'rect' | 'circle' | 'arrow' | 'text' | 'mosaic';
 
 interface Annotation {
   id: string;
-  type: Exclude<ToolType, 'select'>;
+  type: ToolType;
   x: number;
   y: number;
   width?: number;
@@ -35,20 +34,13 @@ interface Annotation {
   size?: number;
 }
 
-interface CropArea {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
 const COLORS = ['#ef4444', '#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#000000', '#ffffff'];
 const TOOL_SIZES = { thin: 2, medium: 4, thick: 6 };
 
 export function ScreenshotEditor({ imageUrl, onComplete, onCancel }: ScreenshotEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [tool, setTool] = useState<ToolType>('select');
+  const [tool, setTool] = useState<ToolType>('rect');
   const [color, setColor] = useState('#ef4444');
   const [toolSize, setToolSize] = useState<keyof typeof TOOL_SIZES>('medium');
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
@@ -56,37 +48,27 @@ export function ScreenshotEditor({ imageUrl, onComplete, onCancel }: ScreenshotE
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentAnnotation, setCurrentAnnotation] = useState<Annotation | null>(null);
-  const [cropArea, setCropArea] = useState<CropArea | null>(null);
-  const [isCropping, setIsCropping] = useState(false);
   const [textInput, setTextInput] = useState<{ x: number; y: number; value: string } | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
-  const scaleRef = useRef(1);
 
   // 初始化 Canvas 和图片
   useEffect(() => {
     const img = new Image();
+    img.crossOrigin = 'anonymous';
     img.onload = () => {
       imageRef.current = img;
       const canvas = canvasRef.current;
       if (!canvas) return;
 
-      const container = containerRef.current;
-      if (!container) return;
-
-      // 计算缩放比例以适应屏幕
-      const containerRect = container.getBoundingClientRect();
-      const padding = 40;
-      const maxWidth = containerRect.width - padding * 2;
-      const maxHeight = containerRect.height - padding * 2;
-      
-      const scaleX = maxWidth / img.width;
-      const scaleY = maxHeight / img.height;
-      scaleRef.current = Math.min(scaleX, scaleY, 1);
-
+      // 设置 canvas 尺寸为图片原始尺寸
       canvas.width = img.width;
       canvas.height = img.height;
       
-      redrawCanvas();
+      // 绘制原图
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+      }
     };
     img.src = imageUrl;
   }, [imageUrl]);
@@ -258,16 +240,10 @@ export function ScreenshotEditor({ imageUrl, onComplete, onCancel }: ScreenshotE
       return;
     }
 
-    if (tool === 'select') {
-      setIsCropping(true);
-      setCropArea({ x, y, width: 0, height: 0 });
-      return;
-    }
-
     setIsDrawing(true);
     const newAnnotation: Annotation = {
       id: Date.now().toString(),
-      type: tool as Exclude<ToolType, 'select'>,
+      type: tool,
       x,
       y,
       color,
@@ -278,19 +254,9 @@ export function ScreenshotEditor({ imageUrl, onComplete, onCancel }: ScreenshotE
 
   // 鼠标移动
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!canvasRef.current) return;
-    const { x, y } = getCanvasCoordinates(e);
-
-    if (isCropping && cropArea) {
-      setCropArea({
-        ...cropArea,
-        width: x - cropArea.x,
-        height: y - cropArea.y
-      });
-      return;
-    }
-
     if (!isDrawing || !currentAnnotation) return;
+    
+    const { x, y } = getCanvasCoordinates(e);
 
     const updated = { ...currentAnnotation };
     if (tool === 'rect' || tool === 'circle' || tool === 'mosaic') {
@@ -304,7 +270,7 @@ export function ScreenshotEditor({ imageUrl, onComplete, onCancel }: ScreenshotE
 
     // 实时预览
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas?.getContext('2d');
     if (!ctx || !imageRef.current) return;
 
     redrawCanvas();
@@ -313,11 +279,6 @@ export function ScreenshotEditor({ imageUrl, onComplete, onCancel }: ScreenshotE
 
   // 鼠标松开
   const handleMouseUp = () => {
-    if (isCropping) {
-      setIsCropping(false);
-      return;
-    }
-
     if (!isDrawing || !currentAnnotation) return;
 
     // 过滤掉太小的标注
@@ -339,26 +300,7 @@ export function ScreenshotEditor({ imageUrl, onComplete, onCancel }: ScreenshotE
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    let finalCanvas = canvas;
-
-    // 如果有裁剪区域，裁剪图片
-    if (cropArea && Math.abs(cropArea.width) > 10 && Math.abs(cropArea.height) > 10) {
-      const croppedCanvas = document.createElement('canvas');
-      const croppedCtx = croppedCanvas.getContext('2d');
-      if (!croppedCtx) return;
-
-      const x = Math.min(cropArea.x, cropArea.x + cropArea.width);
-      const y = Math.min(cropArea.y, cropArea.y + cropArea.height);
-      const width = Math.abs(cropArea.width);
-      const height = Math.abs(cropArea.height);
-
-      croppedCanvas.width = width;
-      croppedCanvas.height = height;
-      croppedCtx.drawImage(canvas, x, y, width, height, 0, 0, width, height);
-      finalCanvas = croppedCanvas;
-    }
-
-    const dataUrl = finalCanvas.toDataURL('image/png');
+    const dataUrl = canvas.toDataURL('image/png');
     onComplete(dataUrl);
   };
 
@@ -386,17 +328,14 @@ export function ScreenshotEditor({ imageUrl, onComplete, onCancel }: ScreenshotE
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/90 flex flex-col">
+    <div 
+      className="fixed inset-0 z-50 flex flex-col"
+      style={{ backgroundColor: '#1a1a2e' }}
+    >
       {/* 顶部工具栏 */}
-      <div className="h-16 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-4">
+      <div className="h-16 flex items-center justify-between px-4" style={{ backgroundColor: '#16213e' }}>
         <div className="flex items-center gap-2">
           {/* 工具选择 */}
-          <ToolButton
-            icon={<MousePointer2 size={18} />}
-            label="选择"
-            active={tool === 'select'}
-            onClick={() => setTool('select')}
-          />
           <ToolButton
             icon={<Square size={18} />}
             label="矩形"
@@ -428,7 +367,7 @@ export function ScreenshotEditor({ imageUrl, onComplete, onCancel }: ScreenshotE
             onClick={() => setTool('mosaic')}
           />
           
-          <div className="w-px h-8 bg-gray-700 mx-2" />
+          <div className="w-px h-8 mx-2" style={{ backgroundColor: '#0f3460' }} />
           
           {/* 颜色选择 */}
           <div className="flex items-center gap-1">
@@ -442,13 +381,14 @@ export function ScreenshotEditor({ imageUrl, onComplete, onCancel }: ScreenshotE
             ))}
           </div>
 
-          <div className="w-px h-8 bg-gray-700 mx-2" />
+          <div className="w-px h-8 mx-2" style={{ backgroundColor: '#0f3460' }} />
 
           {/* 粗细选择 */}
           <select
             value={toolSize}
             onChange={(e) => setToolSize(e.target.value as keyof typeof TOOL_SIZES)}
-            className="bg-gray-800 text-white text-sm rounded px-2 py-1 border border-gray-700"
+            className="text-white text-sm rounded px-2 py-1 border"
+            style={{ backgroundColor: '#0f3460', borderColor: '#e94560' }}
           >
             <option value="thin">细</option>
             <option value="medium">中</option>
@@ -461,45 +401,41 @@ export function ScreenshotEditor({ imageUrl, onComplete, onCancel }: ScreenshotE
           <button
             onClick={undo}
             disabled={historyIndex < 0}
-            className="p-2 rounded hover:bg-gray-800 disabled:opacity-30 text-white"
+            className="p-2 rounded text-white disabled:opacity-30"
+            style={{ backgroundColor: '#0f3460' }}
           >
             <Undo size={18} />
           </button>
           <button
             onClick={redo}
             disabled={historyIndex >= history.length - 1}
-            className="p-2 rounded hover:bg-gray-800 disabled:opacity-30 text-white"
+            className="p-2 rounded text-white disabled:opacity-30"
+            style={{ backgroundColor: '#0f3460' }}
           >
             <Redo size={18} />
           </button>
         </div>
       </div>
 
-      {/* Canvas 区域 */}
-      <div ref={containerRef} className="flex-1 flex items-center justify-center overflow-hidden p-4">
-        <div className="relative">
+      {/* Canvas 区域 - 使用 overflow-auto 允许滚动 */}
+      <div 
+        ref={containerRef} 
+        className="flex-1 flex items-center justify-center overflow-auto p-8"
+        style={{ backgroundColor: '#0f0f1e' }}
+      >
+        <div className="relative shadow-2xl">
           <canvas
             ref={canvasRef}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
-            className="max-w-full max-h-[calc(100vh-180px)] cursor-crosshair shadow-2xl"
-            style={{ transform: `scale(${scaleRef.current})`, transformOrigin: 'center' }}
+            className="block cursor-crosshair"
+            style={{ 
+              maxWidth: 'calc(100vw - 64px)', 
+              maxHeight: 'calc(100vh - 180px)',
+            }}
           />
-          
-          {/* 裁剪框预览 */}
-          {cropArea && (
-            <div
-              className="absolute border-2 border-blue-500 bg-blue-500/20 pointer-events-none"
-              style={{
-                left: Math.min(cropArea.x, cropArea.x + cropArea.width) * scaleRef.current,
-                top: Math.min(cropArea.y, cropArea.y + cropArea.height) * scaleRef.current,
-                width: Math.abs(cropArea.width) * scaleRef.current,
-                height: Math.abs(cropArea.height) * scaleRef.current,
-              }}
-            />
-          )}
         </div>
       </div>
 
@@ -508,8 +444,8 @@ export function ScreenshotEditor({ imageUrl, onComplete, onCancel }: ScreenshotE
         <div
           className="fixed z-50"
           style={{
-            left: textInput.x * scaleRef.current,
-            top: textInput.y * scaleRef.current,
+            left: textInput.x,
+            top: textInput.y,
           }}
         >
           <input
@@ -519,25 +455,27 @@ export function ScreenshotEditor({ imageUrl, onComplete, onCancel }: ScreenshotE
             onKeyDown={(e) => e.key === 'Enter' && submitText()}
             onBlur={submitText}
             placeholder="输入文字..."
-            className="px-2 py-1 text-lg bg-transparent border-2 border-blue-500 text-white outline-none min-w-[100px]"
-            style={{ color }}
+            className="px-2 py-1 text-lg border-2 outline-none min-w-[100px]"
+            style={{ 
+              color,
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              borderColor: '#e94560'
+            }}
           />
         </div>
       )}
 
       {/* 底部操作栏 */}
-      <div className="h-16 bg-gray-900 border-t border-gray-800 flex items-center justify-between px-4">
-        <div className="text-gray-400 text-sm">
-          {tool === 'select' ? '拖拽选择裁剪区域' : 
-           tool === 'text' ? '点击添加文字' : 
-           '拖拽绘制标注'}
+      <div className="h-16 flex items-center justify-between px-4" style={{ backgroundColor: '#16213e' }}>
+        <div className="text-sm" style={{ color: '#8892b0' }}>
+          {tool === 'text' ? '点击添加文字' : '拖拽绘制标注'}
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" onClick={onCancel} className="gap-2">
             <X size={16} />
             取消
           </Button>
-          <Button onClick={handleComplete} className="gap-2">
+          <Button onClick={handleComplete} className="gap-2" style={{ backgroundColor: '#e94560' }}>
             <Check size={16} />
             完成
           </Button>
@@ -562,9 +500,10 @@ function ToolButton({
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center gap-1 px-3 py-2 rounded transition-colors ${
-        active ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-      }`}
+      className="flex flex-col items-center gap-1 px-3 py-2 rounded transition-colors text-white"
+      style={{
+        backgroundColor: active ? '#e94560' : '#0f3460'
+      }}
     >
       {icon}
       <span className="text-xs">{label}</span>

@@ -2,6 +2,9 @@
 
 use std::env;
 
+mod webview_screenshot;
+use webview_screenshot::capture_webview_screenshot;
+
 fn main() {
     println!("[后端] 应用启动中...");
     
@@ -15,8 +18,10 @@ fn main() {
             save_file,
             read_file,
             frontend_log,
-            // 截图命令
+            // 截图命令（系统截图）
             capture_screen,
+            // WebView 注入式截图
+            capture_webview_screenshot,
             // 七牛云 OSS 命令
             qiniu_upload_token,
             qiniu_upload_base64,
@@ -62,15 +67,110 @@ async fn capture_screen() -> Result<String, String> {
         return Err("未找到可用显示器".to_string());
     }
     
-    // 截取主显示器（通常是第一个）
-    let monitor = &monitors[0];
+    // 查找主显示器（通常是最左上角的）
+    let monitor = monitors.iter()
+        .find(|m| {
+            let x = m.x().unwrap_or(0);
+            let y = m.y().unwrap_or(0);
+            x == 0 && y == 0
+        })
+        .or_else(|| monitors.first())
+        .ok_or("无法获取显示器")?;
+    
     let width = monitor.width().map_err(|e| format!("获取宽度失败: {:?}", e))?;
     let height = monitor.height().map_err(|e| format!("获取高度失败: {:?}", e))?;
-    println!("[后端] 截取显示器: {} x {}", width, height);
+    let x = monitor.x().unwrap_or(0);
+    let y = monitor.y().unwrap_or(0);
+    println!("[后端] 截取显示器: {}x{} @ ({}, {})", width, height, x, y);
     
-    let image = monitor.capture_image()
-        .map_err(|e| format!("截图失败: {:?}", e))?;
+    // 添加短暂延迟，确保系统准备好截图（修复黑屏问题）
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     
+    // 尝试截图，如果失败尝试其他显示器
+    let image = match try_capture_monitor(monitor).await {
+        Ok(img) => img,
+        Err(e) => {
+            println!("[后端] 主显示器截图失败: {:?}，尝试其他显示器", e);
+            // 尝试其他显示器（通过索引跳过已尝试的）
+            let mut last_err = e;
+            for (i, m) in monitors.iter().enumerate() {
+                if i > 0 { // 跳过第一个（已经尝试过）
+                    match try_capture_monitor(m).await {
+                        Ok(img) => return process_image_to_base64(img).await,
+                        Err(e) => last_err = e,
+                    }
+                }
+            }
+            return Err(format!("所有显示器截图都失败: {:?}", last_err));
+        }
+    };
+    
+    process_image_to_base64(image).await
+}
+
+async fn try_capture_monitor(monitor: &xcap::Monitor) -> Result<image::RgbaImage, String> {
+    // 重试机制
+    let mut last_error = None;
+    for attempt in 0..3 {
+        if attempt > 0 {
+            println!("[后端] 第 {} 次重试截图...", attempt + 1);
+            tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+        }
+        
+        match monitor.capture_image() {
+            Ok(img) => {
+                // 验证截图是否有效（检查是否全黑）
+                if is_image_all_black(&img) {
+                    println!("[后端] 截图全黑，可能是权限问题");
+                    last_error = Some("截图结果为全黑，请检查屏幕录制权限".to_string());
+                    continue;
+                }
+                return Ok(img);
+            }
+            Err(e) => {
+                println!("[后端] 截图失败: {:?}", e);
+                last_error = Some(format!("{:?}", e));
+            }
+        }
+    }
+    
+    Err(last_error.unwrap_or_else(|| "截图失败".to_string()))
+}
+
+fn is_image_all_black(img: &image::RgbaImage) -> bool {
+    // 采样检查像素，避免遍历整张图片
+    let (width, height) = (img.width(), img.height());
+    if width == 0 || height == 0 {
+        return true;
+    }
+    
+    // 检查中心区域和四个角的像素
+    let check_points = [
+        (width / 2, height / 2),
+        (width / 4, height / 4),
+        (width * 3 / 4, height / 4),
+        (width / 4, height * 3 / 4),
+        (width * 3 / 4, height * 3 / 4),
+        (10, 10),
+        (width - 10, 10),
+        (10, height - 10),
+        (width - 10, height - 10),
+    ];
+    
+    for (x, y) in check_points {
+        if x < width && y < height {
+            let pixel = img.get_pixel(x, y);
+            // 如果任一像素不是全黑，则认为图片有效
+            if pixel[0] > 10 || pixel[1] > 10 || pixel[2] > 10 {
+                return false;
+            }
+        }
+    }
+    
+    true
+}
+
+async fn process_image_to_base64(image: image::RgbaImage) -> Result<String, String> {
     // 转换为 PNG
     let mut png_data: Vec<u8> = Vec::new();
     {

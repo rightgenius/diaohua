@@ -10,26 +10,35 @@ import {
   Loader2,
   Maximize2,
   AlertCircle,
+  Monitor,
+  LayoutTemplate,
+  ChevronDown,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { invoke } from '@tauri-apps/api/core';
 import { ScreenshotEditor } from '@/components/screenshot/ScreenshotEditor';
+import { WebviewScreenshotService } from '@/services/webviewScreenshot';
 
 interface BrowserWorkbenchProps {
   onScreenshot?: (imageUrl: string, pageInfo: { url: string; title: string }) => void;
 }
 
+type ScreenshotMethod = 'auto' | 'iframe-direct' | 'system';
+
 export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
-  const [url, setUrl] = useState('https://www.baidu.com');
-  const [inputUrl, setInputUrl] = useState('https://www.baidu.com');
+  const [url, setUrl] = useState('http://10.20.3.2:9780/');
+  const [inputUrl, setInputUrl] = useState('http://10.20.3.2:9780/');
   const [isLoading, setIsLoading] = useState(false);
   const [hasBrowser, setHasBrowser] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showEditor, setShowEditor] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [screenshotMethod, setScreenshotMethod] = useState<ScreenshotMethod>('auto');
+  const [showMethodMenu, setShowMethodMenu] = useState(false);
   
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const methodMenuRef = useRef<HTMLDivElement>(null);
 
   // 确保 URL 有协议前缀
   const normalizeUrl = (input: string): string => {
@@ -87,20 +96,99 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
     setError('页面加载失败，可能是网站禁止了 iframe 嵌入');
   }, []);
 
-  // 截图功能 - 调用后端截图并打开编辑器
+  // 智能选择截图方案
+  const getActualScreenshotMethod = useCallback((): ScreenshotMethod => {
+    if (screenshotMethod !== 'auto') return screenshotMethod;
+    
+    // 检查 iframe 是否可访问
+    const iframe = iframeRef.current;
+    if (iframe) {
+      try {
+        // 尝试访问 contentDocument
+        if (iframe.contentDocument && iframe.contentDocument.body) {
+          return 'iframe-direct';
+        }
+      } catch {
+        // 跨域，无法访问
+      }
+    }
+    
+    // 默认使用系统截图
+    return 'system';
+  }, [screenshotMethod]);
+
+  // 截图功能 - 支持多种截图方案
   const captureScreenshot = useCallback(async () => {
     setIsCapturing(true);
+    setError(null);
+    
+    const actualMethod = getActualScreenshotMethod();
     
     try {
-      // 调用后端截图命令
-      const imageUrl = await invoke('capture_screen') as string;
-      setCapturedImage(imageUrl);
-      setShowEditor(true);
-    } catch (err) {
+      if (actualMethod === 'iframe-direct' && iframeRef.current) {
+        // 使用 iframe 直接截图（同域时使用）
+        console.log('[截图] 使用 iframe 直接截图方案');
+        
+        const result = await WebviewScreenshotService.captureIFrame(iframeRef.current, {
+          scale: 2,
+          backgroundColor: '#ffffff',
+          timeout: 30000,
+        });
+
+        if (result.success && result.dataUrl) {
+          setCapturedImage(result.dataUrl);
+          setShowEditor(true);
+          return;
+        } else {
+          console.warn('[截图] iframe 截图失败:', result.error);
+          setError(
+            `iframe 截图失败: ${result.error}\n\n` +
+            '该页面可能跨域限制，建议切换到「系统截图」模式。'
+          );
+          return;
+        }
+      } else {
+        // 使用系统截图（xcap）
+        console.log('[截图] 使用系统截图方案');
+        const imageUrl = await invoke('capture_screen') as string;
+        setCapturedImage(imageUrl);
+        setShowEditor(true);
+      }
+    } catch (err: any) {
       console.error('截图失败:', err);
-      alert('截图失败: ' + String(err));
+      const errorMsg = String(err);
+      
+      if (errorMsg.includes('权限') || errorMsg.includes('全黑') || errorMsg.includes('screen recording')) {
+        setError(
+          '系统截图需要屏幕录制权限。\n\n' +
+          'macOS 用户请前往：\n' +
+          '系统设置 → 隐私与安全性 → 屏幕录制 → 添加/启用本应用\n\n' +
+          '或者使用 Cmd+Shift+4 截图后 Cmd+V 粘贴'
+        );
+      } else if (errorMsg.includes('未找到可用显示器')) {
+        setError('无法找到可用显示器，请检查显示器连接');
+      } else {
+        setError('截图失败: ' + errorMsg);
+      }
     } finally {
       setIsCapturing(false);
+    }
+  }, [getActualScreenshotMethod]);
+
+  // 快速检测当前页面是否支持 WebView 截图
+  const checkWebviewSupport = useCallback(async () => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    
+    const result = await WebviewScreenshotService.checkCSPLimitations(iframe);
+    
+    if (result.hasCSPLimitation) {
+      setError(
+        `当前页面${result.message}\n` +
+        '建议使用系统截图 (Cmd+Shift+4) 后粘贴 (Cmd+V)'
+      );
+    } else {
+      setError(null);
     }
   }, []);
 
@@ -153,11 +241,32 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
     return () => document.removeEventListener('paste', handlePaste);
   }, [hasBrowser, url, inputUrl, onScreenshot]);
 
+  // 点击外部关闭菜单
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (methodMenuRef.current && !methodMenuRef.current.contains(event.target as Node)) {
+        setShowMethodMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // 在外部浏览器打开
   const openExternal = useCallback(() => {
     const normalized = normalizeUrl(inputUrl);
     window.open(normalized, '_blank');
   }, [inputUrl]);
+
+  // 获取当前截图方法标签
+  const getMethodLabel = (method: ScreenshotMethod) => {
+    switch (method) {
+      case 'iframe-direct': return 'iframe直接截图';
+      case 'system': return '系统截图';
+      case 'auto': return '智能选择';
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -235,6 +344,75 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
             <ExternalLink size={14} />
             外部
           </Button>
+
+          {/* 截图方法选择器 */}
+          <div className="relative" ref={methodMenuRef}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1"
+              onClick={() => setShowMethodMenu(!showMethodMenu)}
+              title="选择截图方案"
+            >
+              {screenshotMethod === 'iframe-direct' ? <LayoutTemplate size={14} /> : <Monitor size={14} />}
+              <ChevronDown size={12} />
+            </Button>
+            
+            {showMethodMenu && (
+              <div className="absolute right-0 top-full mt-1 w-52 bg-white border rounded-md shadow-lg z-50 py-1">
+                <button
+                  className={cn(
+                    "w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2",
+                    screenshotMethod === 'auto' && "bg-muted"
+                  )}
+                  onClick={() => {
+                    setScreenshotMethod('auto');
+                    setShowMethodMenu(false);
+                  }}
+                >
+                  <LayoutTemplate size={14} className="text-blue-500" />
+                  <div>
+                    <div className="font-medium">智能选择</div>
+                    <div className="text-xs text-muted-foreground">同域用iframe，跨域用系统</div>
+                  </div>
+                </button>
+                <button
+                  className={cn(
+                    "w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2",
+                    screenshotMethod === 'iframe-direct' && "bg-muted"
+                  )}
+                  onClick={() => {
+                    setScreenshotMethod('iframe-direct');
+                    setShowMethodMenu(false);
+                    checkWebviewSupport();
+                  }}
+                >
+                  <LayoutTemplate size={14} className="text-green-500" />
+                  <div>
+                    <div className="font-medium">iframe直接截图</div>
+                    <div className="text-xs text-muted-foreground">同域时可用，速度快</div>
+                  </div>
+                </button>
+                <button
+                  className={cn(
+                    "w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2",
+                    screenshotMethod === 'system' && "bg-muted"
+                  )}
+                  onClick={() => {
+                    setScreenshotMethod('system');
+                    setShowMethodMenu(false);
+                  }}
+                >
+                  <Monitor size={14} className="text-purple-500" />
+                  <div>
+                    <div className="font-medium">系统截图</div>
+                    <div className="text-xs text-muted-foreground">需要屏幕录制权限</div>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
+
           <Button
             onClick={captureScreenshot}
             disabled={isCapturing}
@@ -253,12 +431,12 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
 
       {/* 错误提示 */}
       {error && (
-        <div className="px-4 py-2 bg-amber-50 border-b border-amber-200 flex items-center gap-2 text-amber-700 text-sm">
-          <AlertCircle size={16} />
-          <span>{error}</span>
+        <div className="px-4 py-2 bg-amber-50 border-b border-amber-200 flex items-start gap-2 text-amber-700 text-sm">
+          <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
+          <span className="whitespace-pre-line flex-1">{error}</span>
           <button 
             onClick={() => setError(null)}
-            className="ml-auto text-xs hover:underline"
+            className="ml-auto text-xs hover:underline flex-shrink-0"
           >
             关闭
           </button>
@@ -297,7 +475,10 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
       {/* 提示信息 */}
       <div className="h-8 border-t bg-muted/20 flex items-center px-4 text-xs text-muted-foreground">
         <span className="flex-1">
-          💡 提示：iframe 模式可能受跨域限制，如无法显示请在外部浏览器打开
+          💡 提示：截图方案「{getMethodLabel(screenshotMethod)}」
+          {screenshotMethod === 'auto' && (
+            <span className="ml-2">(自动选择)</span>
+          )}
         </span>
         <span className="hidden md:inline">
           Mac: Cmd+Shift+4 截图 | Cmd+V 粘贴

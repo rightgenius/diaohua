@@ -25,6 +25,7 @@
     "jspdf": "^4.1.0",
     "jszip": "^3.10.1",
     "lucide-react": "^0.294.0",
+    "modern-screenshot": "^4.6.8",
     "qiniu": "^7.15.1",
     "qiniu-js": "^3.4.2",
     "qrcode.react": "^4.2.0",
