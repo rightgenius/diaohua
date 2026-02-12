@@ -552,10 +552,11 @@ ipcMain.handle('load-local-config', async () => {
         const content = fs.readFileSync(configPath, 'utf-8');
         
         // 移除注释（简单处理 JSON 中的注释）
-        // 方法1: 单行注释 //
+        // 注意：不能匹配 URL 中的 //（如 https://）
+        // 方法1: 单行注释 //（行首或空白字符后，不是 :// 后）
         // 方法2: 多行注释 /* */
         let jsonContent = content
-          .replace(/\/\/.*$/gm, '')  // 单行注释
+          .replace(/(^|\s)\/\/.*$/gm, '$1')  // 单行注释（行首或空白后的 //）
           .replace(/\/\*[\s\S]*?\*\//g, '');  // 多行注释
         
         // 清理可能的无效字符（保留基本打印字符和中文）
