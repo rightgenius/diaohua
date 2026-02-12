@@ -49,31 +49,41 @@ export class GeminiService {
   }): Promise<PRDGenerationResult> {
     const { requirement } = params;
     
-    const prompt = this.buildPRDPrompt(requirement);
+    console.log('[GeminiService.generatePRD] 开始生成 PRD...');
+    console.log('[GeminiService.generatePRD] API Key 前5位:', this.apiKey.substring(0, 5) + '...');
     
-    const response = await fetch(
-      `${this.baseUrl}/models/gemini-1.5-flash:generateContent?key=${this.apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { 
-            temperature: 0.7, 
-            maxOutputTokens: 4096,
-            responseMimeType: 'application/json'
-          },
-        }),
-      }
-    );
+    const prompt = this.buildPRDPrompt(requirement);
+    console.log('[GeminiService.generatePRD] Prompt 长度:', prompt.length);
+    
+    const url = `${this.baseUrl}/models/gemini-1.5-flash:generateContent?key=${this.apiKey}`;
+    console.log('[GeminiService.generatePRD] 请求 URL:', url.substring(0, 60) + '...');
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { 
+          temperature: 0.7, 
+          maxOutputTokens: 4096,
+          responseMimeType: 'application/json'
+        },
+      }),
+    });
 
+    console.log('[GeminiService.generatePRD] 响应状态:', response.status);
+    
     if (!response.ok) {
       const error = await response.text();
+      console.error('[GeminiService.generatePRD] API 错误:', error);
       throw new Error(`Gemini API 错误: ${response.status} - ${error}`);
     }
 
     const data = await response.json();
+    console.log('[GeminiService.generatePRD] 响应数据:', data);
+    
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    console.log('[GeminiService.generatePRD] 解析后的文本长度:', text.length);
     
     return this.parsePRDResponse(text);
   }
@@ -275,8 +285,17 @@ ${requirement.userDescription || '未提供'}
 
 // Hook for easy access
 export function useGeminiService(): GeminiService | null {
-  const { geminiApiKey } = useConfigStore();
-  if (!geminiApiKey) return null;
+  const { geminiApiKey, isAIConfigured } = useConfigStore();
+  
+  console.log('[useGeminiService] geminiApiKey:', geminiApiKey ? '已设置 (长度:' + geminiApiKey.length + ')' : '未设置');
+  console.log('[useGeminiService] isAIConfigured:', isAIConfigured);
+  
+  if (!geminiApiKey) {
+    console.log('[useGeminiService] 返回 null - 没有 API Key');
+    return null;
+  }
+  
+  console.log('[useGeminiService] 返回 GeminiService 实例');
   return new GeminiService(geminiApiKey);
 }
 

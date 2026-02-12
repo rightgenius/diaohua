@@ -44,11 +44,16 @@ export function AIResultPanel({ onBack }: AIResultPanelProps) {
   if (!currentRequirement) return null;
 
   const handleGeneratePRD = async () => {
+    console.log('[handleGeneratePRD] 开始执行...');
+    console.log('[handleGeneratePRD] geminiService:', geminiService ? '存在' : 'null');
+    
     if (!geminiService) {
+      console.log('[handleGeneratePRD] 错误: geminiService 为 null');
       setError('请先配置 Gemini API Key');
       return;
     }
 
+    console.log('[handleGeneratePRD] 截图数量:', currentRequirement.screenshots.length);
     if (currentRequirement.screenshots.length === 0) {
       setError('请至少添加一张截图');
       return;
@@ -58,9 +63,11 @@ export function AIResultPanel({ onBack }: AIResultPanelProps) {
     setError(null);
 
     try {
+      console.log('[handleGeneratePRD] 调用 geminiService.generatePRD...');
       const result = await geminiService.generatePRD({
         requirement: currentRequirement,
       });
+      console.log('[handleGeneratePRD] 生成成功:', result);
       
       setAiResult(result);
       
@@ -75,6 +82,7 @@ export function AIResultPanel({ onBack }: AIResultPanelProps) {
         status: 'ai_generating',
       });
     } catch (err) {
+      console.error('[handleGeneratePRD] 生成失败:', err);
       setError(err instanceof Error ? err.message : '生成失败，请重试');
     } finally {
       setIsGeneratingPRD(false);
