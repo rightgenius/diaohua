@@ -14,7 +14,10 @@ import {
   MousePointer2,
   Trash2,
   Palette,
-  Keyboard
+  Keyboard,
+  Crop,
+  Scissors,
+  X
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import type { Annotation, AnnotationType } from '@/types';
@@ -27,7 +30,7 @@ export interface AnnotationEditorProps {
   onCancel: () => void;
 }
 
-type Tool = 'select' | 'rectangle' | 'circle' | 'arrow' | 'draw' | 'text';
+type Tool = 'select' | 'rectangle' | 'circle' | 'arrow' | 'draw' | 'text' | 'crop';
 
 const COLORS = [
   '#ef4444', // red
@@ -56,12 +59,18 @@ export function AnnotationEditor({
   const [history, setHistory] = useState<Annotation[][]>([initialAnnotations]);
   const [historyIndex, setHistoryIndex] = useState(0);
   
+  // 裁剪相关状态
+  const [cropArea, setCropArea] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [isCropping, setIsCropping] = useState(false);
+  const [showCropPreview, setShowCropPreview] = useState(false);
+  
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const startPosRef = useRef({ x: 0, y: 0 });
   const currentAnnotationRef = useRef<Annotation | null>(null);
   const drawPointsRef = useRef<{ x: number; y: number }[]>([]);
+  const cropStartRef = useRef<{ x: number; y: number } | null>(null);
 
   // 加载图片
   useEffect(() => {
@@ -80,6 +89,53 @@ export function AnnotationEditor({
     };
     img.src = imageUrl;
   }, [imageUrl]);
+
+  // 绘制裁剪区域
+  const drawCropArea = (ctx: CanvasRenderingContext2D) => {
+    if (!cropArea) return;
+    
+    const { x, y, width, height } = cropArea;
+    
+    // 绘制半透明遮罩（除裁剪区域外）
+    ctx.save();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    
+    // 上半部分
+    ctx.fillRect(0, 0, ctx.canvas.width, Math.min(y, y + height));
+    // 下半部分
+    ctx.fillRect(0, Math.max(y, y + height), ctx.canvas.width, ctx.canvas.height - Math.max(y, y + height));
+    // 左侧
+    ctx.fillRect(0, Math.min(y, y + height), Math.min(x, x + width), Math.abs(height));
+    // 右侧
+    ctx.fillRect(Math.max(x, x + width), Math.min(y, y + height), ctx.canvas.width - Math.max(x, x + width), Math.abs(height));
+    
+    // 绘制裁剪框边框
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    ctx.strokeRect(x, y, width, height);
+    
+    // 绘制裁剪区域的角点
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#3b82f6';
+    const handleSize = 8;
+    const handles = [
+      { x: x - handleSize / 2, y: y - handleSize / 2 },
+      { x: x + width - handleSize / 2, y: y - handleSize / 2 },
+      { x: x - handleSize / 2, y: y + height - handleSize / 2 },
+      { x: x + width - handleSize / 2, y: y + height - handleSize / 2 },
+    ];
+    handles.forEach((handle) => {
+      ctx.fillRect(handle.x, handle.y, handleSize, handleSize);
+    });
+    
+    // 显示裁剪尺寸
+    ctx.fillStyle = '#3b82f6';
+    ctx.font = '12px sans-serif';
+    ctx.fillText(`${Math.abs(Math.round(width))} x ${Math.abs(Math.round(height))}`, x + 4, y - 6);
+    
+    ctx.restore();
+  };
 
   // 重绘画布
   const redrawCanvas = useCallback(() => {
@@ -103,7 +159,12 @@ export function AnnotationEditor({
     if (currentAnnotationRef.current) {
       drawAnnotation(ctx, currentAnnotationRef.current);
     }
-  }, [annotations]);
+    
+    // 绘制裁剪区域
+    if ((activeTool === 'crop' && isCropping) || (cropArea && !showCropPreview)) {
+      drawCropArea(ctx);
+    }
+  }, [annotations, cropArea, activeTool, isCropping, showCropPreview]);
 
   // 绘制单个标注
   const drawAnnotation = (ctx: CanvasRenderingContext2D, ann: Annotation) => {
@@ -233,6 +294,15 @@ export function AnnotationEditor({
     
     const pos = getMousePos(e);
     startPosRef.current = pos;
+    
+    // 裁剪工具特殊处理
+    if (activeTool === 'crop') {
+      cropStartRef.current = pos;
+      setIsCropping(true);
+      setCropArea({ x: pos.x, y: pos.y, width: 0, height: 0 });
+      return;
+    }
+    
     setIsDrawing(true);
     
     const newAnnotation: Annotation = {
@@ -253,9 +323,24 @@ export function AnnotationEditor({
 
   // 鼠标移动
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const pos = getMousePos(e);
+    
+    // 裁剪工具处理
+    if (isCropping && cropStartRef.current) {
+      const width = pos.x - cropStartRef.current.x;
+      const height = pos.y - cropStartRef.current.y;
+      setCropArea({
+        x: cropStartRef.current.x,
+        y: cropStartRef.current.y,
+        width,
+        height,
+      });
+      redrawCanvas();
+      return;
+    }
+    
     if (!isDrawing || !currentAnnotationRef.current) return;
     
-    const pos = getMousePos(e);
     const ann = currentAnnotationRef.current;
     
     switch (ann.type) {
@@ -277,6 +362,27 @@ export function AnnotationEditor({
 
   // 鼠标松开
   const handleMouseUp = () => {
+    // 裁剪工具处理
+    if (isCropping) {
+      if (cropArea && Math.abs(cropArea.width) > 10 && Math.abs(cropArea.height) > 10) {
+        // 规范化裁剪区域（确保宽高为正）
+        const normalizedCrop = {
+          x: cropArea.width < 0 ? cropArea.x + cropArea.width : cropArea.x,
+          y: cropArea.height < 0 ? cropArea.y + cropArea.height : cropArea.y,
+          width: Math.abs(cropArea.width),
+          height: Math.abs(cropArea.height),
+        };
+        setCropArea(normalizedCrop);
+        setShowCropPreview(true);
+      } else {
+        // 裁剪区域太小，取消裁剪
+        setCropArea(null);
+      }
+      setIsCropping(false);
+      cropStartRef.current = null;
+      return;
+    }
+    
     if (!isDrawing || !currentAnnotationRef.current) return;
     
     const ann = currentAnnotationRef.current;
@@ -380,12 +486,72 @@ export function AnnotationEditor({
     onClose(annotations, description, annotatedImageUrl);
   }, [onClose, annotations, description]);
 
+  // 应用裁剪
+  const applyCrop = useCallback(() => {
+    if (!cropArea || !canvasRef.current || !imageRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    // 获取裁剪后的图像数据
+    const { x, y, width, height } = cropArea;
+    const imageData = ctx.getImageData(x, y, width, height);
+    
+    // 创建新画布
+    const newCanvas = document.createElement('canvas');
+    newCanvas.width = width;
+    newCanvas.height = height;
+    const newCtx = newCanvas.getContext('2d');
+    if (!newCtx) return;
+    
+    // 将裁剪后的图像数据绘制到新画布
+    newCtx.putImageData(imageData, 0, 0);
+    
+    // 更新主画布
+    canvas.width = width;
+    canvas.height = height;
+    ctx.putImageData(imageData, 0, 0);
+    
+    // 更新图片引用
+    const newImg = new Image();
+    newImg.onload = () => {
+      imageRef.current = newImg;
+    };
+    newImg.src = newCanvas.toDataURL('image/png');
+    
+    // 清空标注（因为坐标系变了）
+    setAnnotations([]);
+    addToHistory([]);
+    
+    // 重置裁剪状态
+    setCropArea(null);
+    setShowCropPreview(false);
+    setActiveTool('select');
+  }, [cropArea, addToHistory]);
+
+  // 取消裁剪
+  const cancelCrop = useCallback(() => {
+    setCropArea(null);
+    setShowCropPreview(false);
+    setActiveTool('select');
+    redrawCanvas();
+  }, [redrawCanvas]);
+
   // 键盘快捷键
   useKeyboard({
     onSave: handleSave,
     onUndo: handleUndo,
     onDelete: handleDeleteLast,
-    onEscape: onCancel,
+    onEscape: () => {
+      if (showCropPreview) {
+        cancelCrop();
+      } else if (isCropping || cropArea) {
+        cancelCrop();
+      } else {
+        onCancel();
+      }
+    },
     isEnabled: !textInput.visible,
   });
 
@@ -396,6 +562,7 @@ export function AnnotationEditor({
 
   const tools: { id: Tool; icon: React.ReactNode; label: string }[] = [
     { id: 'select', icon: <MousePointer2 size={18} />, label: '选择' },
+    { id: 'crop', icon: <Crop size={18} />, label: '裁剪' },
     { id: 'rectangle', icon: <Square size={18} />, label: '矩形' },
     { id: 'circle', icon: <Circle size={18} />, label: '圆形' },
     { id: 'arrow', icon: <ArrowRight size={18} />, label: '箭头' },
@@ -518,7 +685,7 @@ export function AnnotationEditor({
                 'block bg-white',
                 activeTool === 'draw' && 'cursor-crosshair',
                 activeTool === 'text' && 'cursor-text',
-                ['rectangle', 'circle', 'arrow'].includes(activeTool) && 'cursor-crosshair'
+                ['rectangle', 'circle', 'arrow', 'crop'].includes(activeTool) && 'cursor-crosshair'
               )}
               style={{ maxWidth: '100%', height: 'auto' }}
             />
@@ -562,6 +729,68 @@ export function AnnotationEditor({
               </div>
             )}
           </div>
+          
+          {/* Crop Preview Panel */}
+          {showCropPreview && cropArea && (
+            <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10">
+              <div className="bg-background rounded-lg shadow-2xl p-6 max-w-2xl w-full mx-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Scissors className="w-5 h-5 text-primary" />
+                    <h3 className="text-lg font-semibold">裁剪预览</h3>
+                  </div>
+                  <button
+                    onClick={cancelCrop}
+                    className="p-1 hover:bg-muted rounded-full"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+                
+                <p className="text-sm text-muted-foreground mb-4">
+                  确认要裁剪图片吗？裁剪将删除选定区域之外的所有内容。
+                </p>
+                
+                <div className="bg-muted rounded-lg p-4 mb-6 overflow-auto max-h-[400px]">
+                  {(() => {
+                    // 生成裁剪预览图
+                    const canvas = canvasRef.current;
+                    if (!canvas) return null;
+                    const { x, y, width, height } = cropArea;
+                    const previewCanvas = document.createElement('canvas');
+                    previewCanvas.width = width;
+                    previewCanvas.height = height;
+                    const ctx = previewCanvas.getContext('2d');
+                    if (!ctx) return null;
+                    ctx.drawImage(canvas, x, y, width, height, 0, 0, width, height);
+                    return (
+                      <img
+                        src={previewCanvas.toDataURL('image/png')}
+                        alt="裁剪预览"
+                        className="max-w-full h-auto mx-auto shadow-lg"
+                        style={{ imageRendering: 'pixelated' }}
+                      />
+                    );
+                  })()}
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    裁剪尺寸: <span className="font-medium text-foreground">{Math.round(cropArea.width)} × {Math.round(cropArea.height)} px</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={cancelCrop}>
+                      取消
+                    </Button>
+                    <Button onClick={applyCrop} className="gap-2">
+                      <Check size={16} />
+                      应用裁剪
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Description */}
