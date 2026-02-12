@@ -37,23 +37,31 @@ diaohua/
 │   └── preload.cjs          # 预加载脚本（API 暴露、TAURI 兼容层）
 ├── src/
 │   ├── components/          # React 组件
-│   │   ├── ai/              # AI 相关组件
-│   │   │   ├── AIResultPanel.tsx    # AI 生成结果面板
-│   │   │   └── MockupReview.tsx     # 效果图评审界面
 │   │   ├── browser/         # 浏览器工作台
 │   │   │   └── BrowserWorkbench.tsx # 内置浏览器 + 截图按钮
-│   │   ├── comments/        # 评论系统
+│   │   ├── comments/        # 评论系统（预留，未接入）
+│   │   │   └── CommentSection.tsx   # 评论组件（store逻辑已实现）
 │   │   ├── editor/          # 标注编辑器
 │   │   ├── export/          # 导出功能
 │   │   ├── layout/          # 布局组件
-│   │   ├── notification/    # 通知中心
-│   │   ├── prd/             # PRD 版本历史
+│   │   ├── notification/    # 通知中心（预留）
+│   │   ├── prd/             # PRD 版本历史（预留，未接入）
+│   │   │   └── PRDVersionHistory.tsx # PRD版本组件
 │   │   ├── screenshot/      # 截图相关组件
 │   │   │   ├── AnnotationEditor.tsx # 标注编辑器（Fabric.js）
 │   │   │   └── ScreenshotList.tsx   # 截图列表
 │   │   ├── settings/        # 设置表单
-│   │   ├── share/           # 分享功能
+│   │   ├── share/           # 分享功能（预留，未完善）
+│   │   │   └── ShareButton.tsx      # 分享按钮组件
 │   │   └── ui/              # 基础 UI 组件
+│   │       ├── Badge.tsx
+│   │       ├── Button.tsx
+│   │       ├── Card.tsx
+│   │       ├── EmptyState.tsx
+│   │       ├── ImageLightbox.tsx
+│   │       ├── Input.tsx
+│   │       ├── Loading.tsx          # 加载组件（预留，未使用）
+│   │       └── Textarea.tsx
 │   ├── pages/               # 页面组件
 │   │   ├── Dashboard.tsx           # 需求列表页
 │   │   ├── RequirementEditor.tsx   # 需求编辑页
@@ -165,6 +173,24 @@ Gemini API 配置存储在 `configStore` 中，需要用户首次使用时在设
 1. **系统截图** (`desktopCapturer`): 截取整个屏幕，需要屏幕录制权限
 2. **网页截图** (`capturePage`): 截取指定 URL，创建隐藏窗口加载后截图
 3. **WebView 截图** (废弃): 使用 `modern-screenshot` 库，受 CSP 限制
+
+## 预留功能说明
+
+以下组件已创建但尚未接入主界面，属于预留功能：
+
+| 组件/功能 | 位置 | 状态 | 说明 |
+|----------|------|------|------|
+| CommentSection | `components/comments/` | 组件已创建，Store 逻辑已实现 | 需求评论系统 |
+| PRDVersionHistory | `components/prd/` | 组件已创建，类型已定义 | PRD 版本历史对比 |
+| ShareButton | `components/share/` | 组件已创建 | 分享功能按钮 |
+| Loading | `components/ui/` | 组件已创建 | 统一加载状态组件 |
+
+### 如何接入预留功能
+
+1. **评论系统**: Store 已提供 `addComment`, `resolveComment`, `deleteComment` 方法，只需在 RequirementEditor 中引入 `CommentSection` 组件
+2. **PRD 版本**: 在 `RequirementEditor` 的 Prompt 生成标签页中引入 `PRDVersionHistory` 组件
+3. **分享功能**: 完善 `Share.tsx` 页面逻辑，替换当前简单实现
+4. **加载组件**: 用 `Loading.tsx` 替换各页面的自定义加载样式
 
 ## 代码风格规范
 

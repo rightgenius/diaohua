@@ -77,6 +77,23 @@
 - [ ] 3.3 错误处理和提示
 - [ ] 3.4 空状态界面
 
+#### Phase 4: 预留功能（组件已创建但未接入）
+- [ ] 4.1 评论系统
+  - 组件: `CommentSection.tsx`（已创建）
+  - Store: `addComment`, `resolveComment`, `deleteComment` 已实现
+  - 需接入界面
+- [ ] 4.2 PRD 版本历史
+  - 组件: `PRDVersionHistory.tsx`（已创建）
+  - 类型: `PRDVersion` 已定义
+  - 需接入 Prompt 生成标签页
+- [ ] 4.3 分享功能
+  - 组件: `ShareButton.tsx`（已创建）
+  - 页面: `Share.tsx`（基础版已实现）
+  - 需完善分享链接生成逻辑
+- [ ] 4.4 加载组件统一
+  - 组件: `Loading.tsx`, `LoadingOverlay.tsx`（已创建）
+  - 需替换各页面的自定义加载样式
+
 ---
 
 ## 技术方案调研
