@@ -11,7 +11,9 @@
     "electron:dev": "NODE_ENV=development electron .",
     "electron:build": "npm run build && electron-builder",
     "electron:preview": "npm run build && electron .",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps",
+    "electron:restart": "killall 'Electron' 2>/dev/null; npm run electron:dev",
+    "restart": "npm run build && npm run electron:restart"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
