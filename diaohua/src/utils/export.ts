@@ -1,5 +1,6 @@
 import type { Requirement } from '@/types';
 import { jsPDF } from 'jspdf';
+// import html2pdf from 'html2pdf.js';
 
 export interface ExportPackage {
   json: string;
@@ -279,8 +280,474 @@ export async function createExportZip(
 
 /**
  * 导出为 PDF 报告
+ * 使用 html2pdf.js 来支持中文
  */
 export async function exportToPDF(requirement: Requirement): Promise<void> {
+  // 使用 html2canvas + jsPDF 手动实现，避免 html2pdf.js 的问题
+  const html2canvas = (await import('html2canvas')).default;
+  
+  // 创建容器 - 使用 visibility 而非 display:none 确保可渲染
+  const htmlContent = generatePDFHTML(requirement);
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 794px;
+    min-height: 100px;
+    z-index: 99999;
+    background: white;
+  `;
+  
+  const container = document.createElement('div');
+  container.innerHTML = htmlContent;
+  container.style.cssText = `
+    width: 794px;
+    background: white;
+  `;
+  
+  wrapper.appendChild(container);
+  document.body.appendChild(wrapper);
+
+  // 等待渲染和图片加载
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  try {
+    // 渲染为 canvas
+    const canvas = await html2canvas(container, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+      width: container.offsetWidth,
+      height: container.offsetHeight,
+    });
+
+    // 生成 PDF
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 10;
+    const contentWidth = pageWidth - margin * 2;
+
+    const imgWidth = contentWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    
+    // 计算需要多少页
+    const contentHeightPerPage = pageHeight - margin * 2;
+    let remainingHeight = imgHeight;
+    let currentY = margin;
+    let sourceY = 0;
+    const scale = canvas.width / imgWidth;
+
+    // 第一页
+    let isFirstPage = true;
+    
+    while (remainingHeight > 0) {
+      if (!isFirstPage) {
+        pdf.addPage();
+        currentY = margin;
+      }
+      isFirstPage = false;
+      
+      // 计算这一页能显示多少内容
+      const drawHeight = Math.min(remainingHeight, contentHeightPerPage);
+      
+      // 创建临时 canvas 裁剪当前页内容
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = Math.floor(drawHeight * scale);
+      const tempCtx = tempCanvas.getContext('2d');
+      
+      if (tempCtx) {
+        // 从原 canvas 裁剪部分绘制到临时 canvas
+        tempCtx.drawImage(
+          canvas,
+          0, sourceY * scale, canvas.width, tempCanvas.height,
+          0, 0, canvas.width, tempCanvas.height
+        );
+        
+        const pageImgData = tempCanvas.toDataURL('image/png');
+        pdf.addImage(pageImgData, 'PNG', margin, currentY, imgWidth, drawHeight);
+      }
+      
+      remainingHeight -= drawHeight;
+      sourceY += drawHeight;
+    }
+
+    pdf.save(`${requirement.title}_report.pdf`);
+  } finally {
+    document.body.removeChild(wrapper);
+  }
+}
+
+/**
+ * 生成 PDF 的 HTML 内容
+ */
+function generatePDFHTML(requirement: Requirement): string {
+  const selectedMockup = requirement.mockupDesigns?.find(m => m.id === requirement.selectedMockupId);
+  
+  const screenshotsHTML = requirement.screenshots.map((s, i) => `
+    <div class="screenshot-item avoid-break">
+      <h4>截图 ${i + 1}: ${escapeHtml(s.title)}</h4>
+      <div class="screenshot-meta">
+        <span>页面: ${escapeHtml(s.pageTitle || '未知')}</span>
+        <span>时间: ${new Date(s.createdAt).toLocaleString('zh-CN')}</span>
+      </div>
+      ${s.description ? `<p class="screenshot-desc">${escapeHtml(s.description)}</p>` : ''}
+      ${s.imageUrl ? `<img src="${s.imageUrl}" alt="截图 ${i + 1}" class="screenshot-img" />` : ''}
+      ${s.annotations.length > 0 ? `
+        <div class="annotations">
+          <p><strong>标注 (${s.annotations.length} 个):</strong></p>
+          <ul>
+            ${s.annotations.map((a, j) => `
+              <li>${j + 1}. ${getAnnotationTypeLabel(a.type)}${a.text ? `: "${escapeHtml(a.text)}"` : ''}</li>
+            `).join('')}
+          </ul>
+        </div>
+      ` : ''}
+    </div>
+  `).join('');
+
+  const aiContentHTML = requirement.aiGeneratedContent ? `
+    <div class="ai-content">
+      <h2>AI 优化内容</h2>
+      <div class="design-suggestions">
+        <h3>设计参考</h3>
+        <p><strong>布局风格:</strong> ${escapeHtml(requirement.aiGeneratedContent.designSuggestions?.layout?.style || '未指定')}</p>
+        <p><strong>布局描述:</strong> ${escapeHtml(requirement.aiGeneratedContent.designSuggestions?.layout?.description || '未提供')}</p>
+        
+        ${requirement.aiGeneratedContent.designSuggestions?.styleGuide?.colors?.length ? `
+          <div class="color-section">
+            <p><strong>配色方案:</strong></p>
+            <div class="color-list">
+              ${requirement.aiGeneratedContent.designSuggestions.styleGuide.colors.map(c => `
+                <span class="color-item" style="background-color: ${c};">${c}</span>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+        
+        ${requirement.aiGeneratedContent.designSuggestions?.components?.length ? `
+          <div class="components-section">
+            <p><strong>组件建议:</strong></p>
+            <ul>
+              ${requirement.aiGeneratedContent.designSuggestions.components.map(c => `
+                <li><strong>${escapeHtml(c.name)}</strong> (${c.type}): ${escapeHtml(c.description)}</li>
+              `).join('')}
+            </ul>
+          </div>
+        ` : ''}
+      </div>
+      
+      ${requirement.aiGeneratedContent.generatedPrompt ? `
+        <div class="prompt-section">
+          <h3>效果图生成 Prompt</h3>
+          <pre>${escapeHtml(requirement.aiGeneratedContent.generatedPrompt)}</pre>
+        </div>
+      ` : ''}
+    </div>
+  ` : '<div class="ai-content"><h2>AI 优化内容</h2><p>尚未进行 AI 优化</p></div>';
+
+  const mockupHTML = selectedMockup ? `
+    <div class="mockup-section avoid-break">
+      <h2>已选效果图</h2>
+      <p class="mockup-meta">
+        <span>方案: ${selectedMockup.variant}</span>
+        <span>风格: ${escapeHtml(selectedMockup.style)}</span>
+        <span>生成时间: ${new Date(selectedMockup.createdAt).toLocaleString('zh-CN')}</span>
+      </p>
+      ${selectedMockup.imageUrl ? `<img src="${selectedMockup.imageUrl}" alt="效果图" class="mockup-img" />` : ''}
+    </div>
+  ` : (requirement.mockupDesigns?.length ? `
+    <div class="mockup-section">
+      <h2>效果图</h2>
+      <p>共 ${requirement.mockupDesigns.length} 张效果图，尚未选择（请在软件中选择）</p>
+    </div>
+  ` : `
+    <div class="mockup-section">
+      <h2>效果图</h2>
+      <p>尚未生成效果图</p>
+    </div>
+  `);
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+          font-size: 12px;
+          line-height: 1.6;
+          color: #333;
+          background: #fff;
+        }
+        
+        .header {
+          border-bottom: 2px solid #333;
+          padding-bottom: 15px;
+          margin-bottom: 20px;
+        }
+        
+        .header h1 {
+          font-size: 24px;
+          font-weight: bold;
+          margin-bottom: 10px;
+          color: #000;
+        }
+        
+        .header-meta {
+          display: flex;
+          gap: 20px;
+          color: #666;
+          font-size: 11px;
+        }
+        
+        .section {
+          margin-bottom: 25px;
+        }
+        
+        h2 {
+          font-size: 16px;
+          font-weight: bold;
+          margin-bottom: 12px;
+          color: #000;
+          border-bottom: 1px solid #ddd;
+          padding-bottom: 5px;
+        }
+        
+        h3 {
+          font-size: 14px;
+          font-weight: bold;
+          margin: 15px 0 8px 0;
+          color: #222;
+        }
+        
+        h4 {
+          font-size: 13px;
+          font-weight: bold;
+          margin: 10px 0 5px 0;
+          color: #333;
+        }
+        
+        p {
+          margin-bottom: 8px;
+        }
+        
+        .description {
+          background: #f9f9f9;
+          padding: 12px;
+          border-radius: 4px;
+          border-left: 3px solid #666;
+          white-space: pre-wrap;
+          word-wrap: break-word;
+        }
+        
+        .screenshot-item {
+          margin-bottom: 20px;
+          padding: 10px;
+          background: #fafafa;
+          border-radius: 4px;
+        }
+        
+        .screenshot-meta {
+          display: flex;
+          gap: 15px;
+          color: #666;
+          font-size: 10px;
+          margin-bottom: 8px;
+        }
+        
+        .screenshot-desc {
+          color: #555;
+          font-style: italic;
+          margin-bottom: 8px;
+        }
+        
+        .screenshot-img {
+          max-width: 100%;
+          height: auto;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          margin: 10px 0;
+        }
+        
+        .annotations {
+          margin-top: 10px;
+          padding: 8px;
+          background: #f0f0f0;
+          border-radius: 3px;
+          font-size: 11px;
+        }
+        
+        .annotations ul {
+          margin-left: 20px;
+          margin-top: 5px;
+        }
+        
+        .annotations li {
+          margin-bottom: 3px;
+        }
+        
+        .design-suggestions {
+          background: #f9f9f9;
+          padding: 12px;
+          border-radius: 4px;
+        }
+        
+        .color-section {
+          margin: 10px 0;
+        }
+        
+        .color-list {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-top: 5px;
+        }
+        
+        .color-item {
+          display: inline-block;
+          padding: 4px 8px;
+          border-radius: 3px;
+          font-size: 10px;
+          color: #fff;
+          text-shadow: 0 0 2px rgba(0,0,0,0.5);
+          border: 1px solid rgba(0,0,0,0.1);
+        }
+        
+        .components-section ul {
+          margin-left: 20px;
+          margin-top: 5px;
+        }
+        
+        .components-section li {
+          margin-bottom: 5px;
+        }
+        
+        .prompt-section {
+          margin-top: 15px;
+        }
+        
+        .prompt-section pre {
+          background: #f4f4f4;
+          padding: 10px;
+          border-radius: 4px;
+          font-size: 10px;
+          overflow-x: auto;
+          white-space: pre-wrap;
+          word-wrap: break-word;
+          border: 1px solid #ddd;
+        }
+        
+        .mockup-section {
+          margin-top: 20px;
+        }
+        
+        .mockup-meta {
+          display: flex;
+          gap: 15px;
+          color: #666;
+          font-size: 11px;
+          margin-bottom: 10px;
+        }
+        
+        .mockup-img {
+          max-width: 100%;
+          height: auto;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+        }
+        
+        .footer {
+          margin-top: 30px;
+          padding-top: 15px;
+          border-top: 1px solid #ddd;
+          text-align: center;
+          color: #999;
+          font-size: 10px;
+        }
+        
+        ul, ol {
+          margin-left: 20px;
+          margin-bottom: 10px;
+        }
+        
+        li {
+          margin-bottom: 4px;
+        }
+        
+        .avoid-break {
+          page-break-inside: avoid;
+        }
+        
+        .page-break-before {
+          page-break-before: always;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>${escapeHtml(requirement.title)}</h1>
+        <div class="header-meta">
+          <span>状态: ${getStatusLabel(requirement.status)}</span>
+          <span>优先级: ${requirement.priority}</span>
+          <span>创建: ${new Date(requirement.createdAt).toLocaleString('zh-CN')}</span>
+        </div>
+      </div>
+      
+      <div class="section">
+        <h2>用户原始描述</h2>
+        <div class="description">${escapeHtml(requirement.userDescription || '未提供描述')}</div>
+      </div>
+      
+      ${requirement.screenshots.length > 0 ? `
+        <div class="section">
+          <h2>截图与标注 (${requirement.screenshots.length} 张)</h2>
+          ${screenshotsHTML}
+        </div>
+      ` : ''}
+      
+      <div class="section page-break-before">
+        ${aiContentHTML}
+      </div>
+      
+      <div class="section">
+        ${mockupHTML}
+      </div>
+      
+      <div class="footer">
+        由 雕花 (Diaohua) 导出于 ${new Date().toLocaleString('zh-CN')}
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+/**
+ * 转义 HTML 特殊字符
+ */
+function escapeHtml(text: string): string {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/**
+ * 使用 jsPDF 导出 PDF（备用方案，无中文支持）
+ * 仅在 html2pdf 不可用时使用
+ */
+export async function exportToPDFLegacy(requirement: Requirement): Promise<void> {
   const pdf = new jsPDF('p', 'mm', 'a4');
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
@@ -299,9 +766,9 @@ export async function exportToPDF(requirement: Requirement): Promise<void> {
   // 需求信息
   pdf.setFontSize(12);
   pdf.setTextColor(100, 100, 100);
-  pdf.text(`状态: ${getStatusLabel(requirement.status)} | 优先级: ${requirement.priority}`, margin, y);
+  pdf.text(`Status: ${requirement.status} | Priority: ${requirement.priority}`, margin, y);
   y += 10;
-  pdf.text(`创建: ${new Date(requirement.createdAt).toLocaleString('zh-CN')}`, margin, y);
+  pdf.text(`Created: ${new Date(requirement.createdAt).toLocaleString()}`, margin, y);
   y += 15;
 
   // 分隔线
@@ -435,7 +902,7 @@ export async function exportToPDF(requirement: Requirement): Promise<void> {
   // 页脚
   pdf.setFontSize(8);
   pdf.setTextColor(150, 150, 150);
-  pdf.text(`Generated by Diaohua on ${new Date().toLocaleString('zh-CN')}`, margin, pageHeight - 10);
+  pdf.text(`Generated by Diaohua on ${new Date().toLocaleString()}`, margin, pageHeight - 10);
 
   // 下载 PDF
   pdf.save(`${requirement.title}_report.pdf`);

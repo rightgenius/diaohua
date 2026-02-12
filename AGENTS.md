@@ -258,6 +258,72 @@ npm run electron:build
 图标生成脚本位于 `build_assets/` 目录，使用 Python Pillow 生成。
 如需修改图标，编辑生成脚本后重新运行即可。
 
+## 网络代理配置
+
+在国内网络环境下，可能需要配置代理才能正常安装 Electron 等依赖。
+
+### 设置 NPM 代理
+
+```bash
+# 设置 HTTP/HTTPS 代理
+npm config set proxy http://localhost:7897
+npm config set https-proxy http://localhost:7897
+
+# 取消代理设置
+npm config delete proxy
+npm config delete https-proxy
+```
+
+### 忽略 TLS 证书验证
+
+如果遇到证书验证错误，可以临时忽略（**仅开发环境使用**）：
+
+```bash
+# 方法 1: 设置环境变量
+export NODE_TLS_REJECT_UNAUTHORIZED=0
+
+# 方法 2: npm 配置
+npm config set strict-ssl false
+
+# 安装依赖
+npm install
+```
+
+**注意**: 忽略 TLS 验证会降低安全性，仅在受信任的网络环境下临时使用。
+
+### 完整安装命令示例
+
+```bash
+export NODE_TLS_REJECT_UNAUTHORIZED=0
+npm config set proxy http://localhost:7897
+npm config set https-proxy http://localhost:7897
+npm install
+```
+
+### Electron 国内镜像
+
+Electron 体积较大，在国内网络下建议配置镜像源：
+
+```bash
+# 设置 Electron 镜像（阿里云/淘宝镜像）
+npm config set electron_mirror https://npmmirror.com/mirrors/electron/
+
+# 或者 electron-builder 镜像
+npm config set electron_builder_binaries_mirror https://npmmirror.com/mirrors/electron-builder-binaries/
+
+# 然后安装依赖
+npm install
+```
+
+如果 Electron 安装失败（如出现 `Electron failed to install correctly` 错误），删除后重新安装：
+
+```bash
+rm -rf node_modules/electron
+export NODE_TLS_REJECT_UNAUTHORIZED=0
+export ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"
+npm install electron@^34.5.8
+```
+
 ## 已知问题
 
 1. **截图黑屏**: 部分 macOS 系统需要屏幕录制权限，在「系统设置 > 隐私与安全性 > 屏幕录制」中启用
