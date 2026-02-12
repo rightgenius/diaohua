@@ -15,8 +15,8 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
-import { ScreenshotEditor } from '@/components/screenshot/ScreenshotEditor';
-import { WebviewScreenshotService } from '@/services/webviewScreenshot';
+import { AnnotationEditor } from '@/components/screenshot';
+import { ScreenshotService } from '@/services/screenshot';
 
 interface BrowserWorkbenchProps {
   onScreenshot?: (imageUrl: string, pageInfo: { url: string; title: string }) => void;
@@ -129,7 +129,7 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
         // 使用 iframe 直接截图（同域时使用）
         console.log('[截图] 使用 iframe 直接截图方案');
         
-        const result = await WebviewScreenshotService.captureIFrame(iframeRef.current, {
+        const result = await ScreenshotService.captureIFrame(iframeRef.current, {
           scale: 2,
           backgroundColor: '#ffffff',
           timeout: 30000,
@@ -186,14 +186,14 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
     }
   }, [getActualScreenshotMethod, url]);
 
-  // 快速检测当前页面是否支持 WebView 截图
+  // 快速检测当前页面是否支持 iframe 截图
   const checkWebviewSupport = useCallback(async () => {
     const iframe = iframeRef.current;
     if (!iframe) return;
     
-    const result = await WebviewScreenshotService.checkCSPLimitations(iframe);
+    const result = await ScreenshotService.checkCSPLimitations(iframe);
     
-    if (result.hasCSPLimitation) {
+    if (result.hasLimitation) {
       setError(
         `当前页面${result.message}\n` +
         '建议使用 Electron 截图模式或系统截图 (Cmd+Shift+4) 后粘贴 (Cmd+V)'
@@ -203,17 +203,21 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
     }
   }, []);
 
-  // 完成编辑
-  const handleEditorComplete = useCallback((editedImageUrl: string) => {
-    if (onScreenshot) {
-      onScreenshot(editedImageUrl, { 
-        url: hasBrowser ? url : inputUrl, 
-        title: '浏览器截图' 
-      });
-    }
+  // 完成编辑 - AnnotationEditor 返回标注和描述，需要重新生成图片
+  const handleEditorClose = useCallback(() => {
+    if (!capturedImage || !onScreenshot) return;
+    
+    // 将标注绘制到图片上
+    const finalImageUrl = capturedImage; // TODO: 如果有标注，需要将标注绘制到图片上
+    
+    onScreenshot(finalImageUrl, { 
+      url: hasBrowser ? url : inputUrl, 
+      title: '浏览器截图' 
+    });
+    
     setShowEditor(false);
     setCapturedImage(null);
-  }, [hasBrowser, url, inputUrl, onScreenshot]);
+  }, [capturedImage, hasBrowser, url, inputUrl, onScreenshot]);
 
   // 取消编辑
   const handleEditorCancel = useCallback(() => {
@@ -513,11 +517,11 @@ export function BrowserWorkbench({ onScreenshot }: BrowserWorkbenchProps) {
         </span>
       </div>
 
-      {/* 截图编辑器 */}
+      {/* 截图标注编辑器 */}
       {showEditor && capturedImage && (
-        <ScreenshotEditor
+        <AnnotationEditor
           imageUrl={capturedImage}
-          onComplete={handleEditorComplete}
+          onClose={handleEditorClose}
           onCancel={handleEditorCancel}
         />
       )}

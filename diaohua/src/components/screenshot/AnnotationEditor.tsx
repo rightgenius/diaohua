@@ -19,7 +19,7 @@ import {
 import { cn } from '@/utils/cn';
 import type { Annotation, AnnotationType } from '@/types';
 
-interface AnnotationEditorProps {
+export interface AnnotationEditorProps {
   imageUrl?: string;
   initialAnnotations?: Annotation[];
   initialDescription?: string;

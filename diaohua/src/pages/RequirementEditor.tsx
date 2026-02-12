@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { EmptyScreenshot } from '@/components/ui/EmptyState';
 import { ExportButton } from '@/components/export/ExportButton';
-import { SortableScreenshotList } from '@/components/screenshot/SortableScreenshotList';
+import { ScreenshotList, AnnotationEditor } from '@/components/screenshot';
 import { 
   Wand2, 
   Plus,
@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { BrowserWorkbench } from '@/components/browser/BrowserWorkbench';
-import { AnnotationEditor } from '@/components/editor/AnnotationEditor';
+
 import { ScreenshotService } from '@/services/screenshot';
 import type { Screenshot } from '@/types';
 
@@ -204,11 +204,12 @@ export function RequirementEditor() {
         
         {/* Screenshot List */}
         <div className="flex-1 overflow-y-auto p-4 min-h-0">
-          <SortableScreenshotList
+          <ScreenshotList
             screenshots={currentRequirement.screenshots}
             onReorder={handleReorderScreenshots}
             onEdit={handleEditScreenshot}
             onDelete={handleDeleteScreenshot}
+            sortable={true}
             emptyState={
               <EmptyScreenshot 
                 onScreenshot={() => {

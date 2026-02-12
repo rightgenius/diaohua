@@ -6,6 +6,23 @@ const http = require('http');
 const { URL } = require('url');
 const crypto = require('crypto');
 
+// 安全的日志函数，防止 EPIPE 错误
+function safeLog(...args) {
+  try {
+    console.log(...args);
+  } catch (e) {
+    // 忽略控制台写入错误
+  }
+}
+
+function safeError(...args) {
+  try {
+    console.error(...args);
+  } catch (e) {
+    // 忽略控制台写入错误
+  }
+}
+
 // 保持窗口对象的全局引用，防止垃圾回收
 let mainWindow = null;
 
@@ -50,7 +67,7 @@ function createMainWindow() {
 
 // 应用就绪时创建窗口
 app.whenReady().then(() => {
-  console.log('[Electron] 应用启动中...');
+  safeLog('[Electron] 应用启动中...');
   createMainWindow();
 
   app.on('activate', () => {
@@ -72,28 +89,32 @@ app.on('window-all-closed', () => {
 // 日志
 ipcMain.handle('log', async (event, level, message) => {
   const prefix = '[渲染进程]';
-  switch (level) {
-    case 'error':
-      console.error(prefix, message);
-      break;
-    case 'warn':
-      console.warn(prefix, message);
-      break;
-    default:
-      console.log(prefix, message);
+  try {
+    switch (level) {
+      case 'error':
+        console.error(prefix, message);
+        break;
+      case 'warn':
+        console.warn(prefix, message);
+        break;
+      default:
+        console.log(prefix, message);
+    }
+  } catch (e) {
+    // 忽略控制台写入错误
   }
 });
 
 // 系统截图 - 使用 desktopCapturer
 ipcMain.handle('capture-screen', async () => {
-  console.log('[Electron] 开始截取屏幕');
+  safeLog('[Electron] 开始截取屏幕');
   
   try {
     const primaryDisplay = screen.getPrimaryDisplay();
     const { width, height } = primaryDisplay.size;
     const { x, y } = primaryDisplay.bounds;
     
-    console.log(`[Electron] 屏幕尺寸: ${width}x${height} @ (${x}, ${y})`);
+    safeLog(`[Electron] 屏幕尺寸: ${width}x${height} @ (${x}, ${y})`);
 
     // 获取屏幕源，添加超时处理
     const sources = await Promise.race([
@@ -124,10 +145,10 @@ ipcMain.handle('capture-screen', async () => {
     
     const base64 = image.toDataURL();
     
-    console.log(`[Electron] 截图完成，数据大小: ${base64.length} bytes`);
+    safeLog(`[Electron] 截图完成，数据大小: ${base64.length} bytes`);
     return base64;
   } catch (error) {
-    console.error('[Electron] 截图失败:', error);
+    safeError('[Electron] 截图失败:', error);
     // 返回更友好的错误信息
     if (error.message && error.message.includes('screen recording')) {
       throw new Error('需要屏幕录制权限。请在系统设置 > 隐私与安全性 > 屏幕录制中启用本应用。');
@@ -138,7 +159,7 @@ ipcMain.handle('capture-screen', async () => {
 
 // 网页截图 - 使用 BrowserWindow.capturePage
 ipcMain.handle('capture-webpage', async (event, url, options = {}) => {
-  console.log(`[Electron] 开始截取网页: ${url}`);
+  safeLog(`[Electron] 开始截取网页: ${url}`);
   
   const {
     width = 1920,
@@ -163,11 +184,34 @@ ipcMain.handle('capture-webpage', async (event, url, options = {}) => {
       },
     });
 
-    // 加载页面
-    await captureWindow.loadURL(url);
+    // 处理加载失败事件
+    let didFailLoad = false;
+    captureWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+      didFailLoad = true;
+      safeError(`[Electron] 页面加载失败: ${errorDescription} (${errorCode})`);
+    });
+
+    // 加载页面，添加超时处理
+    await Promise.race([
+      captureWindow.loadURL(url),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('页面加载超时')), 30000)
+      )
+    ]);
+    
+    if (didFailLoad) {
+      throw new Error('页面加载失败，请检查网址是否可访问');
+    }
     
     // 等待页面加载和渲染
     await new Promise(resolve => setTimeout(resolve, waitTime));
+    
+    // 检查页面是否加载成功（可以通过检查标题或执行简单的 JS）
+    try {
+      await captureWindow.webContents.executeJavaScript('document.readyState');
+    } catch (e) {
+      throw new Error('页面脚本执行失败，可能受 CSP 限制');
+    }
     
     // 截图
     let image;
@@ -194,11 +238,18 @@ ipcMain.handle('capture-webpage', async (event, url, options = {}) => {
     }
 
     const base64 = image.toDataURL();
-    console.log(`[Electron] 网页截图完成，数据大小: ${base64.length} bytes`);
+    safeLog(`[Electron] 网页截图完成，数据大小: ${base64.length} bytes`);
     
     return base64;
   } catch (error) {
-    console.error('[Electron] 网页截图失败:', error);
+    safeError('[Electron] 网页截图失败:', error);
+    // 提供更友好的错误信息
+    const errorMsg = error.message || String(error);
+    if (errorMsg.includes('ERR_NAME_NOT_RESOLVED') || errorMsg.includes('ERR_CONNECTION_REFUSED')) {
+      throw new Error('无法连接到目标网站，请检查网址和网络连接');
+    } else if (errorMsg.includes('timeout')) {
+      throw new Error('页面加载超时，请稍后重试');
+    }
     throw error;
   } finally {
     // 确保窗口被销毁
@@ -232,7 +283,7 @@ ipcMain.handle('save-file', async (event, filePath, data) => {
     fs.writeFileSync(filePath, buffer);
     return { success: true };
   } catch (error) {
-    console.error('[Electron] 保存文件失败:', error);
+    safeError('[Electron] 保存文件失败:', error);
     throw error;
   }
 });
@@ -243,7 +294,7 @@ ipcMain.handle('read-file', async (event, filePath) => {
     const data = fs.readFileSync(filePath);
     return data;
   } catch (error) {
-    console.error('[Electron] 读取文件失败:', error);
+    safeError('[Electron] 读取文件失败:', error);
     throw error;
   }
 });
@@ -257,7 +308,7 @@ ipcMain.handle('read-file-base64', async (event, filePath) => {
     const mimeType = getMimeType(ext);
     return `data:${mimeType};base64,${base64}`;
   } catch (error) {
-    console.error('[Electron] 读取文件失败:', error);
+    safeError('[Electron] 读取文件失败:', error);
     throw error;
   }
 });
@@ -377,7 +428,7 @@ ipcMain.handle('qiniu-test-connection', async (event, config) => {
     await ipcMain.handle('qiniu-upload', event, config, base64Data, testKey, 'text/plain');
     return { success: true, message: '连接成功' };
   } catch (error) {
-    console.error('[Electron] 七牛连接测试失败:', error);
+    safeError('[Electron] 七牛连接测试失败:', error);
     return { success: false, message: `连接失败: ${error.message}` };
   }
 });
@@ -456,4 +507,44 @@ ipcMain.handle('get-platform', () => {
   return process.platform;
 });
 
-console.log('[Electron] 主进程已加载');
+safeLog('[Electron] 主进程已加载');
+
+// 防止 EPIPE 等错误导致应用崩溃
+process.stdout.on('error', (err) => {
+  // 忽略 stdout 写入错误（通常是管道被关闭）
+  if (err.code === 'EPIPE') {
+    return;
+  }
+  // 其他错误记录到文件（使用用户目录，避免依赖 app 是否 ready）
+  try {
+    const logDir = app.isReady() ? app.getPath('logs') : require('os').tmpdir();
+    fs.appendFileSync(
+      path.join(logDir, 'electron-error.log'),
+      `[${new Date().toISOString()}] stdout error: ${err.message}\n`
+    );
+  } catch (e) {
+    // 如果连文件写入都失败，就只能忽略
+  }
+});
+
+process.stderr.on('error', (err) => {
+  // 忽略 stderr 写入错误
+  if (err.code === 'EPIPE') {
+    return;
+  }
+});
+
+// 捕获未处理的错误，防止应用崩溃
+process.on('uncaughtException', (error) => {
+  if (error.code === 'EPIPE') {
+    // EPIPE 错误不需要崩溃应用
+    safeError('[Electron] 捕获到 EPIPE 错误，已忽略');
+    return;
+  }
+  safeError('[Electron] 未捕获的异常:', error);
+  // 其他严重错误可能需要退出应用
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  safeError('[Electron] 未处理的 Promise 拒绝:', reason);
+});
