@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRequirementStore } from '@/stores/requirementStore';
 import { useConfigStore } from '@/stores/configStore';
 import { useGeminiService, type PRDGenerationResult } from '@/services/gemini';
@@ -29,10 +29,12 @@ export function AIResultPanel({ onBack }: AIResultPanelProps) {
   
   // 监控 store 中的 API Key
   const { geminiApiKey, isAIConfigured } = useConfigStore();
-  console.log('[AIResultPanel] geminiApiKey:', geminiApiKey ? '存在' : '空', '| isAIConfigured:', isAIConfigured);
-  
   const geminiService = useGeminiService();
-  console.log('[AIResultPanel] geminiService:', geminiService ? '存在' : 'null');
+  
+  useEffect(() => {
+    console.log('[AIResultPanel] 状态更新 - geminiApiKey:', geminiApiKey ? '存在(长度' + geminiApiKey.length + ')' : '空', '| isAIConfigured:', isAIConfigured);
+    console.log('[AIResultPanel] 状态更新 - geminiService:', geminiService ? '存在' : 'null');
+  }, [geminiApiKey, isAIConfigured, geminiService]);
   
   const [activeTab, setActiveTab] = useState<'prd' | 'design' | 'mockup'>('prd');
   const [isGeneratingPRD, setIsGeneratingPRD] = useState(false);

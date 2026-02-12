@@ -202,6 +202,7 @@ export const useConfigStore = create<ConfigState>()(
       name: 'diaohua-config',
       // 加载时解密敏感字段，然后加载本地配置（本地配置优先级更高）
       onRehydrateStorage: () => (state) => {
+        console.log('[ConfigStore] onRehydrateStorage 触发, state:', state ? '存在' : 'null');
         if (state) {
           // 解密敏感字段
           const newOss = { ...state.oss };
@@ -212,11 +213,13 @@ export const useConfigStore = create<ConfigState>()(
             }
           }
           state.oss = newOss;
+          console.log('[ConfigStore] 解密后的 geminiApiKey:', state.geminiApiKey ? '存在' : '空');
         }
         // 延迟加载本地配置（确保 store 完全初始化后执行）
         setTimeout(() => {
+          console.log('[ConfigStore] 延迟加载本地配置...');
           useConfigStore.getState().loadLocalConfig();
-        }, 0);
+        }, 100);
       },
       // 存储前加密敏感字段
       partialize: (state) => {
