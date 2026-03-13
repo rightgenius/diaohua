@@ -18,7 +18,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Trash2, Edit2, ImageIcon, ZoomIn } from 'lucide-react';
+import { GripVertical, Trash2, Edit2, ImageIcon, ZoomIn, Layers, Keyboard } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import type { Screenshot } from '@/types';
 import { EmptyScreenshot } from '@/components/ui/EmptyState';
@@ -32,6 +32,7 @@ export interface ScreenshotListProps {
   onEdit?: (screenshot: Screenshot) => void;
   onDelete?: (screenshotId: string) => void;
   onView?: (screenshot: Screenshot) => void;
+  onAdd?: () => void;
   sortable?: boolean;
   showUrl?: boolean;
   showAnnotationCount?: boolean;
@@ -331,6 +332,7 @@ export function ScreenshotList({
   onEdit,
   onDelete,
   onView,
+  onAdd: _onAdd, // 暂未使用，保留用于未来添加截图功能
   sortable = true,
   showUrl = true,
   showAnnotationCount = true,
@@ -391,6 +393,25 @@ export function ScreenshotList({
   if (!sortable || !onReorder) {
     return (
       <>
+        {/* 工具栏 - 与 AnnotationEditor 风格统一 */}
+        <div className="h-12 border-b flex items-center justify-between px-2 mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              {screenshots.length} 张截图
+            </span>
+            {sortable && onReorder && (
+              <span className="text-xs text-muted-foreground px-2 py-0.5 bg-muted rounded">
+                拖拽排序
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Keyboard size={12} />
+            <span>双击编辑</span>
+            <span className="mx-1">|</span>
+            <span>点击查看</span>
+          </div>
+        </div>
         <div className={cn('space-y-3', className)}>
           {screenshots.map((screenshot, index) => (
             <ScreenshotItem
@@ -420,6 +441,21 @@ export function ScreenshotList({
   // 排序模式：使用 DndContext
   return (
     <>
+      {/* 工具栏 - 与 AnnotationEditor 风格统一 */}
+      <div className="h-12 border-b flex items-center justify-between px-2 mb-3">
+        <div className="flex items-center gap-2">
+          <Layers size={16} className="text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">
+            {screenshots.length} 张截图
+          </span>
+        </div>
+        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Keyboard size={12} />
+          <span>拖拽排序</span>
+          <span className="mx-1">|</span>
+          <span>双击编辑</span>
+        </div>
+      </div>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
